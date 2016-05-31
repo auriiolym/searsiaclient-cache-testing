@@ -95,10 +95,6 @@
     
     <script>
     
-    function sleep( durationMs ){
-        var now = new Date().getTime(), t=0;
-        while (new Date().getTime() < now + durationMs) {t++} 
-    }
     
     /**
      * Searsia server comparator.
@@ -106,65 +102,88 @@
      */
      
     // Settings.
-    var queryAmount = 25,
+    var queryAmount = 25, // different query strings
     	runTime = 30, // seconds
+    	delay = 200, // delay after each query request to the set of servers (in milliseconds)
     	servers = {
-    		controlServer: "http://localhost:16842/searsia/search?q={q?}&r={r?}",
-    		testServer 	 : "http://localhost:16843/searsia/search?q={q?}&r={r?}"
+    		controlServer: "http://localhost:16842/searsia/",
+    		testServer 	 : "http://localhost:16843/searsia/"
     	},
-    	testResources = ["tester10s"/*, "tester30s", "tester1m", "tester2m", "tester5m", "tester10m"*/]
+    	
+    	// The template that will be supplemented and overwritten.
+    	resourceTemplate = {
+    		resource: {
+ 				mimetype: "text/html",
+ 				testquery: "searsia",
+ 				itempath: "//li",
+ 				extractors: { title: "." }
+    		},
+    		searsia: "v0.4.0"
+   		},
+   		// The values (per resouce) will supplement and overwrite resourceTemplate.
+   		// The id will be the same as the key.
+    	resources = {
+    		tester10s: {
+    			apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=10&q={q}"
+    		},
+    		tester20s: {
+    			apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=20&q={q}"
+    		},
+    		tester30s: {
+    			apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=30&q={q}"
+    		}
+    	}
     ;
     
-    // Declare variables.
-    var queryBase,
-    	queries = [],
-    	q,
-    	r,
+    // Declare global variables.
+    var queries = [],
     	testIterator = -1,
-    	startTime,
     	results = [],
     	resourceError = false
     ;
     
+    // Set default request settings.
+    $.ajaxSetup({
+    	type: "GET",
+    	timeout: 10000,
+        dataType: 'json',
+    	async: false
+    });
+    
     // Build a list of unique queries.
-    queryBase = "Query" + new Date().getTime();
+    var queryBase = "Query" + new Date().getTime();
     for (var i = 0; i < queryAmount; i++) {
     	queries.push(queryBase + i);
     }
     
-    // Check if all resources are registered on the servers.
-    for (var i in testResources) {
+    // Check if all resources are registered on the servers and if not, try to add them.
+    for (var r in resources) {
     	for (var s in servers) {
-    	    $.ajax({
-    	        url: fillUrlTemplate(servers[s], "", testResources[i]),
-    	        error: function (xhr, options, err) {
-    	        	console.log("Resource " + testResources[i] + " is not found "
-    	        	      	  + "on server " + s);
-    	        	resourceError = true;
-    	        },
-    	        timeout: 12000,
-    	        dataType: 'json',
-    	        async: false
-    	    });
+    		if (!hasResource(s, r)) {
+    			if (addResource(s, r)) {
+    				console.log("Resource " + r + " was added to server " + s + ".");
+    			} else {
+    				resourceError = true;
+    			}
+    		}
     	}
     }
     if (resourceError) {
-    	throw 'error: resource(s) not found';
+    	throw 'error: resource(s) not found and unable to add to server(s).';
     }
     
     // Start the timer.
-    startTime = new Date().getTime();
+    var startTime = new Date().getTime();
     while (new Date().getTime() < startTime + runTime * 1000) {
     	results[++testIterator] = {};
     	
     	// Loop through all test queries.
     	for (var j in queries) {
-    		q = queries[j];
+    		var q = queries[j];
     		results[testIterator][q] = {};
     		
-    		//Loop through all resources.
-    		for (var k in testResources) {
-    			r = testResources[k];
+    		// Loop through all resources.
+    		for (var r in resources) {
     			results[testIterator][q][r] = {};
     			
     			// Execute query on servers.
@@ -177,11 +196,165 @@
     			results[testIterator][q][r]['accurate'] = isEqual(responseData, Object.keys(servers));
     			
     			// Sleep to give the servers some time.
-    			sleep(200);
+    			sleep(delay);
     		}
     	}
     }
-    console.log(results);
+    console.log("Raw results: ", results);
+    
+    // Tests are done!
+    
+    
+    
+    /** 
+     * Now make something of the results.
+     * We want:
+     *  - average response time per server and per resource
+     *  - average response time per server
+     *  - accuracy per resource
+     *
+     * This is the data available:
+     *  results[testIterator][query][resource][server].responseTime
+     *  results[testIterator][query][resource][server].error
+     *  results[testIterator][query][resource].accurate
+     * 
+     * So first reformat to:
+     *  reformattedData[server][resource][] = responseTime
+     *  accuracyData[resource][] = accurate
+     */
+    
+    var reformattedData = {},
+    	accuracyData = {},
+    	avgResponseTimes = {},
+    	avgServerResponseTimes = {},
+    	accuracies = {}
+    ;
+    for (var i in results) {
+    	for (var q in results[i]) {
+    		for (var r in results[i][q]) {
+    			for (var s in servers) {
+    				reformattedData[s] = reformattedData[s] || {};
+    				reformattedData[s][r] = reformattedData[s][r] || [];
+    				if (results[i][q][r][s].error === false) {
+    					reformattedData[s][r].push(results[i][q][r][s].responseTime);
+    				}
+    			}
+    			accuracyData[r] = accuracyData[r] || [];
+    			if (results[i][q][r].accurate !== null) {
+    				accuracyData[r].push(results[i][q][r].accurate);
+    			}
+    		}
+    	}
+    }
+    console.log("Reformatted data: ", reformattedData);
+    console.log("Accuracy data:    ", accuracyData);
+    
+    // Now calculate the average response time per server per resource and per server.
+    // I also transpose the matrix, so it can be analysed more easily.
+    // Result formats:	
+    //	avgResponseTimes[resource][server] = avg response time
+    //  avgServerResponseTime[server] = avg response time
+    for (var s in reformattedData) {
+        var serverTotalResponseTime = 0;
+        var serverTotalMeasurePoints = 0;
+    	for (var r in reformattedData[s]) {
+    		avgResponseTimes[r] = avgResponseTimes[r] || {};
+    		var sum = reformattedData[s][r].reduce(function(a,b){return a+b;});
+    		
+    		avgResponseTimes[r][s] = sum / reformattedData[s][r].length;
+    		
+    		serverTotalResponseTime += sum;
+    		serverTotalMeasurePoints += reformattedData[s][r].length;
+    	}
+    	avgServerResponseTimes[s] = serverTotalResponseTime / serverTotalMeasurePoints;
+    }
+    console.log("Average response times: ", avgResponseTimes);
+    console.log("Average server response times: ", avgServerResponseTimes);
+    
+    // Calculate the accuracy.
+    // Result format:
+    //  accuracies[resource] = percent accurate
+    for (r in accuracyData) {
+    	var accurate = 0;
+    	var inaccurate = 0;
+    	for (i in accuracyData[r]) {
+    		if (accuracyData[r][i] === true) {
+    			accurate++;
+    		} else if (accuracyData[r][i] === false) {
+    			inaccurate++;
+    		}
+    	}
+    	accuracies[r] = accurate / (accurate + inaccurate);
+    } 
+    console.log("Accuracies: ", accuracies);
+    
+    
+    
+    
+    
+    
+
+    
+    /**
+     * Return a complete resource object, built up from the resourceTemplate and resources settings.
+     *
+     * @param rid	string	the resource identifier
+     * @return 		object	the resource object
+     */
+    function getResource(rid) {
+    	return jQuery.extend(true, {}, resourceTemplate,
+   			{ resource: { id: rid } },
+   			{ resource: resources[rid] }
+ 		);
+    }
+    
+    /**
+     * Check if a server has a specific resource.
+     *
+     * @param server	string	the server id, as can be found in the settings of this script
+     * @param resource	string	the resource id
+     * @return 			boolean
+     */
+    function hasResource(server, resource) {
+    	var result = true;
+	    $.ajax({
+	        url: fillUrlTemplate(getSearchTemplate(s), "", resource),
+	        error: function (xhr, options, err) {
+	        	result = false;
+	        }
+	    });
+	    return result;
+	}
+    
+    
+    /**
+     * Add a resource to a server.
+     *
+     * @param server 	string	the server id, as can be found in the settings of this script
+     * @param resource	string	the resource identifier
+     * @return 			boolean true if adding succeeded
+     */
+    function addResource(server, resource) {
+    	var result,
+    		resourceObject = getResource(resource)
+   		;
+    	
+    	$.ajax({
+            url: getUpdateTemplate(server) + resource, 
+            type: 'PUT',
+            contentType: 'application/searsia+json; charset=utf-8',
+            data: JSON.stringify(resourceObject),
+            success: function (data, textStatus, jqXHR) {
+				result = true;
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+            	console.log("Update failed.\n" + jqXHR.status + " " + jqXHR.statusText + ".\n");
+            	console.log(jqXHR.responseJSON);
+            	result = false;
+            }
+        });
+    	return result;
+    }
     
     
     /**
@@ -190,7 +363,7 @@
      *
      * @param obj 	object	the object of which the values will be compared to each other
      * @param keys	array	the keys of the object that should be checked
-     * @return boolean		true if all values corresponding to the keys are equal to each other; false if
+     * @return 		boolean true if all values corresponding to the keys are equal to each other; false if
      *						any value is null or if a key is undefined
      */
     function isEqual(obj, keys) {
@@ -211,7 +384,7 @@
      * Execute a query via a server on a resource. The response time and possible errors are saved
      * to the results variable. To do that, it also needs access to the testIterator variable.
      *
-     * @param server 	string	the server key as it can be found in the servers variable
+     * @param server 	string	the server id, as can be found in the settings of this script
      * @param q			string	the query string
      * @param r			string	the resource identifier
      * @return			string	the response data
@@ -220,7 +393,7 @@
 		var responseData = null;
 		var timeMark = new Date().getTime();
 	    $.ajax({
-	        url: fillUrlTemplate(servers[server], q, r),
+	        url: fillUrlTemplate(getSearchTemplate(server), q, r),
 	        success: function (data) { 
 	        	responseData = data;
 	        	// Save response time.
@@ -230,18 +403,46 @@
 	        	}
 	        },
 	        error: function (xhr, options, err) {
-	        	responseData = null;
 	        	// Indicate error.
 	        	results[testIterator][q][r][server] = {
         			responseTime: null,
 					error: true
 	        	}
-	        },
-	        timeout: 12000,
-	        dataType: 'json',
-	        async: false
+	        }
 	    });
 	    return responseData;
+    }
+     
+
+
+    /**
+     * Return the server's API search template.
+     *
+     * @param server 	string	the server id, as can be found in the settings of this script
+     * @return 			string
+     */
+    function getSearchTemplate(server) {
+    	return servers[server] + "search?q={q?}&r={r?}";
+    }
+
+    /**
+     * Return the server's API update template.
+     *
+     * @param server 	string	the server id, as can be found in the settings of this script
+     * @return 			string
+     */
+    function getUpdateTemplate(server) {
+    	return servers[server] + "update/";
+    }
+
+    /**
+     * Sleep for a while.
+     *
+     * @param durationMs 	int		the amount of milliseconds to sleep
+     */
+    function sleep( durationMs ){
+        var now = new Date().getTime(), t=0;
+        while (new Date().getTime() < now + durationMs) {t++;} 
     }
     
     
