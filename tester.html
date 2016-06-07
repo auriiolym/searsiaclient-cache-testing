@@ -15,6 +15,20 @@
   <body>
 
     <div class="container-fluid theme-search">
+    
+      <div class="row">
+        <div class="col-md-8">
+          <div>Test status: <span id="test-status">not running</span></div>
+          <div>Set run time: <span id="test-setting-runtime">...</span></div>
+          <div>Current test run time: <span id="test-runtime">0</span> seconds</div>
+          <div>Current test iteration completion: <span id="test-iteration-completion">0</span> %</div>
+          <div>Total queries: <span id="test-totalqueries">0</span></div>
+          <div id="test-queries2servers"></div>
+          <div></div>
+          <div id="test-result-table"></div>
+        </div>
+        <div class="col-md-4"></div>
+      </div>
 
       <div class="row">
         <div class="col-md-8">
@@ -95,52 +109,55 @@
     
     <script>
     
+
     
     /**
      * Searsia server comparator.
      * This compares the speed and accuracy of two Searsia servers.
      */
-     
-    // Settings.
+    
+    // Global settings.
     var queryAmount = 25, // different query strings
-    	runTime = 30, // seconds
-    	delay = 200, // delay after each query request to the set of servers (in milliseconds)
-    	servers = {
-    		controlServer: "http://localhost:16842/searsia/",
-    		testServer 	 : "http://localhost:16843/searsia/"
-    	},
-    	
-    	// The template that will be supplemented and overwritten.
-    	resourceTemplate = {
-    		resource: {
- 				mimetype: "text/html",
- 				testquery: "searsia",
- 				itempath: "//li",
- 				extractors: { title: "." }
-    		},
-    		searsia: "v0.4.0"
-   		},
-   		// The values (per resouce) will supplement and overwrite resourceTemplate.
-   		// The id will be the same as the key.
-    	resources = {
-    		tester10s: {
-    			apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=10&q={q}"
-    		},
-    		tester20s: {
-    			apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=20&q={q}"
-    		},
-    		tester30s: {
-    			apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=30&q={q}"
-    		}
-    	}
+        runTime = 30, // seconds
+        delay = 200, // delay after each query request to the set of servers (in milliseconds)
+        servers = {
+            controlServer: "http://localhost:16842/searsia/",
+            testServer   : "http://localhost:16843/searsia/"
+        },
+        
+        // The template that will be supplemented and overwritten.
+        resourceTemplate = {
+            resource: {
+                mimetype: "text/html",
+                testquery: "searsia",
+                itempath: "//li",
+                extractors: { title: "." }
+            },
+            searsia: "v0.4.0"
+        },
+        // The values (per resouce) that will supplement and overwrite resourceTemplate.
+        // The id will be the same as the key.
+        resources = {
+            tester10s: {
+                apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=10&q={q}"
+            },
+            tester20s: {
+                apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=20&q={q}"
+            },
+            tester30s: {
+                apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=30&q={q}"
+            }
+        }
     ;
     
     // Declare global variables.
     var queries = [],
-    	testIterator = -1,
-    	results = [],
-    	resourceError = false
+        intermediaryResults = [],
+        resourceError = false,
+        abort = false
     ;
+    
+    $(function(){
     
     // Set default request settings.
     $.ajaxSetup({
@@ -172,39 +189,53 @@
     	throw 'error: resource(s) not found and unable to add to server(s).';
     }
     
-    // Start the timer.
-    var startTime = new Date().getTime();
-    while (new Date().getTime() < startTime + runTime * 1000) {
-    	results[++testIterator] = {};
+    // Start the test.
+    var startTime = resultProcessor.startTest();
+    while (new Date().getTime() < startTime + runTime * 1000 && !abort) {
+    	intermediaryResults = {};
     	
     	// Loop through all test queries.
     	for (var j in queries) {
     		var q = queries[j];
-    		results[testIterator][q] = {};
+    		intermediaryResults[q] = {};
     		
     		// Loop through all resources.
     		for (var r in resources) {
-    			results[testIterator][q][r] = {};
+    			intermediaryResults[q][r] = {};
     			
     			// Execute query on servers.
     			var responseData = {};
     			for (var s in servers) {
+    				if (abort) { throw "abort"; }
     				responseData[s] = executeQuery(s, q, r);
     			}
     			
     			// Compare results.
-    			results[testIterator][q][r]['accurate'] = isEqual(responseData, Object.keys(servers));
+    			intermediaryResults[q][r].accurate = isEqual(responseData, Object.keys(servers));
+    			
+    			// Update iteration completion status.
+    			resultProcessor.updateIterationCompletionStatus();
     			
     			// Sleep to give the servers some time.
     			sleep(delay);
     		}
     	}
+    	
+    	// Pass the intermediary results to the processor.
+    	resultProcessor.processIterationResult(intermediaryResults);
     }
-    console.log("Raw results: ", results);
+    resultProcessor.stopTest();
+    
+    console.log("Raw results: ", resultProcessor.rawResults);
     
     // Tests are done!
+    });
     
     
+    function abortTest() {
+    	abort = true;
+    	resultProcessor.stopTest();
+    }
     
     /** 
      * Now make something of the results.
@@ -221,7 +252,7 @@
      * So first reformat to:
      *  reformattedData[server][resource][] = responseTime
      *  accuracyData[resource][] = accurate
-     */
+     * /
     
     var reformattedData = {},
     	accuracyData = {},
@@ -289,7 +320,7 @@
     console.log("Accuracies: ", accuracies);
     
     
-    
+    */
     
     
     
@@ -318,7 +349,7 @@
     function hasResource(server, resource) {
     	var result = true;
 	    $.ajax({
-	        url: fillUrlTemplate(getSearchTemplate(s), "", resource),
+	        url: fillUrlTemplate(getSearchTemplate(server), "", resource),
 	        error: function (xhr, options, err) {
 	        	result = false;
 	        }
@@ -397,20 +428,26 @@
 	        success: function (data) { 
 	        	responseData = data;
 	        	// Save response time.
-	        	results[testIterator][q][r][server] = {
+	        	intermediaryResults[q][r][server] = {
         			responseTime: new Date().getTime() - timeMark,
 					error: false
 	        	}
 	        },
 	        error: function (xhr, options, err) {
 	        	// Indicate error.
-	        	results[testIterator][q][r][server] = {
+	        	intermediaryResults[q][r][server] = {
         			responseTime: null,
 					error: true
 	        	}
 	        }
 	    });
+	    resultProcessor.incrementQueries(server);
 	    return responseData;
+    }
+     
+     
+    function process(rawResults) {
+    	
     }
      
 
@@ -440,10 +477,220 @@
      *
      * @param durationMs 	int		the amount of milliseconds to sleep
      */
-    function sleep( durationMs ){
+    function sleep(durationMs) {
         var now = new Date().getTime(), t=0;
         while (new Date().getTime() < now + durationMs) {t++;} 
     }
+    
+    
+    
+	// Variable dependencies:
+	//  servers
+	//  resources
+	//  queries
+	var resultProcessor = {
+	
+	rawResults: [], // format: rawResults[iteration][queryStr][resource][server] = {}
+	iteration: 0,
+	
+	incrementQueries: function(server) {
+	   $("#test-queries2server-"+server).html(parseInt($("#test-queries2server-"+server).html()) + 1);
+	   $("#test-totalqueries").html(parseInt($("#test-totalqueries").html()) + 1);
+	},
+	
+	startTime: null,
+	runtimeInterval: null,
+	startTest: function() {
+	   this.startTime = new Date().getTime();
+	   
+	   // Start timer.
+	   this.runtimeInterval = window.setInterval(function(){
+		   //TODO: this doesn't work
+	       $('#test-runtime').html(Math.round((new Date().getTime() - resultProcessor.startTime) / 1000));
+	   }, 1000);
+	   
+	   this.setStatus(1);
+	   
+	   // Add servers to "amount of queries" overview.
+	   for (s in servers) {
+	       $("#test-queries2servers").append(
+	           $("<div>Queries to server "+s+": <span id=\"test-queries2server-"+s+"\">0</span>")
+	       );
+	   }
+	   
+	   // Show pre-defined, desired run time.
+	   $("#test-setting-runtime").html(runTime + " seconds");//TODO: replace this with minutes, hours, etc.
+	   
+	   return this.startTime;
+	},
+	stopTest: function() {
+	   window.clearInterval(this.runtimeInterval);
+	   this.setStatus(2);
+	},
+	
+	testStatus: 0, // 0 = not started, 1 = running, 2 = done.
+	setStatus(s) {
+	   switch (s) {
+	       case 0: $('#test-status').html("not started"); break;
+	       case 1: $('#test-status').html("running"); break;
+	       case 2: $('#test-status').html("done"); break;
+	   }
+	   this.testStatus = s;
+	},
+	
+	iterationCompletion: null,
+	iterationCompletionProgress: 0,
+	updateIterationCompletionStatus: function() {
+		if (this.iterationCompletion === null) {
+			this.iterationCompletion = queries.length * Object.keys(resources).length;
+		}
+	    this.iterationCompletionProgress++;
+	    $("#test-iteration-completion").html(Math.round(this.iterationCompletionProgress / this.iterationCompletion * 100));
+	},
+	resetIterationCompletionStatus: function() {
+	   this.iterationCompletionProgress = 0;
+	},
+	
+	
+	// Reformatted data.
+	datapoints_responseTimes: {}, // format: [server][resource][] = response time
+	datapoints_accuracies: {},    // format: [resource][] = accurate
+	
+	// Calculated data.
+	avgQueryResponseTime: {},     // format: [resource][server] = avg response time
+	sumQueryResponseTime: {},     // format: [resource][server] = sum of response times
+	avgServrResponseTime: {},     // format: [server] = avg response time
+	sumServrResponseTime: {},     // format: [server] = sum of response times
+	amtServrResponseTime: {},     // format: [server] = amount of response times
+	amtAccurate: {},              // format: [resource] = amount of accurate requests
+	amtInaccurate: {},            // fornat: [resource] = amount of inaccurate requests
+	accuracyRatio: {},            // fornat: [resource] = accuracy
+	
+	processIterationResult: function(iterationResults) {
+	   
+	   // Add to raw result set.
+	   this.rawResults.push(iterationResults);
+	   
+	   var iterationResponseTimes = {}; // format: [server][resource][] = response time
+	   var iterationAccuracies = {};    // format: [resource][] = accurate
+	   
+	   // Reformat into temporary set.
+	   for (var q in iterationResults) {
+	       for (var r in iterationResults[q]) {
+	           for (var s in servers) {
+	               iterationResponseTimes[s] = iterationResponseTimes[s] || {};
+	               iterationResponseTimes[s][r] = iterationResponseTimes[s][r] || [];
+	               if (iterationResults[q][r][s].error === false) {
+	                   iterationResponseTimes[s][r].push(iterationResults[q][r][s].responseTime);
+	               }
+	           }
+	           this.datapoints_accuracies[r] = this.datapoints_accuracies[r] || [];
+	           if (iterationResults[q][r].accurate !== null) {
+	               this.datapoints_accuracies[r].push(iterationResults[q][r].accurate);
+	           }
+	       }
+	   }
+	   
+	   // Add the temporary set to the total result set.
+	   for (var s in servers) {
+	       this.datapoints_responseTimes[s] = this.datapoints_responseTimes[s] || {};
+	       for (var r in iterationResponseTimes[s]) {
+	           this.datapoints_responseTimes[s][r] = this.datapoints_responseTimes[s][r] || [];
+	           $.merge(this.datapoints_responseTimes[s][r], iterationResponseTimes[s][r]);
+	       }
+	   }
+	   for (var r in resources) {
+	       this.datapoints_accuracies[r] = this.datapoints_accuracies[r] || [];
+	       console.log(this.datapoints_accuracies[r], iterationAccuracies[r]);//TODO: it goes wrong here.
+	       $.merge(this.datapoints_accuracies[r], iterationAccuracies[r]);
+	   }
+	   
+	   // Calculate new values (avg response times).
+	   for (var s in servers) {
+	       var serverTotalResponseTime = 0;
+	       var serverTotalMeasurePoints = 0;
+	       for (var r in resources) {
+	           this.avgQueryResponseTime[r]    = this.avgQueryResponseTime[r] || {};
+	           this.sumQueryResponseTime[r][s] = this.sumQueryResponseTime[r][s] || 0;
+	           
+	           var iterationResponseTimesSum = iterationResponseTimes[s][r].reduce(function(a,b){return a+b;});
+	           
+	           this.sumQueryResponseTime[r][s] += iterationResponseTimesSum;
+	           
+	           this.avgQueryResponseTime[r][s] = this.sumQueryResponseTime[r][s] / this.datapoints_responseTimes[s][r].length;
+	           
+	           this.sumServrResponseTime[s] += iterationResponseTimesSum;
+	           this.amtServrResponseTime[s] += this.datapoints_responseTimes[s][r].length;
+	       }
+	       this.avgSrvrResponseTime[s] = this.sumServrResponseTime[s] / this.amtServrResponseTime[s];
+	   }
+	   // Calculate new values (accuracies).
+	   for (var r in resources) {
+	       this.amtAccurate[r] = this.amtAccurate[r] || 0;
+	       this.amtInaccurate[r] = this.amtInaccurate[r] || 0;
+	       for (var i in iterationAccuracies[r]) {
+	           if (iterationAccuracies[r][i] === true) {
+	               this.amtAccurate[r]++;
+	           } else if (iterationAccuracies[r][i] === false) {
+	               this.amtAccurate[r]++;
+	           }
+	       }
+	       this.accuracyRatio[r] = this.amtAccurate[r] / (this.amtAccurate[r] + this.amtInaccurate[r]);
+	   }
+	   
+	   // Update output.
+	   var columns = 2 + servers.length;
+	   var table = $('<table><tr><td colspan="'+(columns-1)+'">Response times</td><td /></tr></table>');
+	   var headRow = $("<tr><td /></tr>");
+	   for (var s in servers) {
+	       headRow.append($("<td>"+s+"</td>"));
+	   }
+	   headRow.append($("<td>- accuracy -</td>"));
+	   t.append(headRow);
+	   for (var r in resources) {
+	       var row = $("<tr><td>"+r+"</td></tr>");
+	       for (var s in servers) {
+	           row.append("<td>"+avgQueryResponseTime[r][s]+" ms</td>")
+	       }
+	       row.append("<td>"+accuracyRatio[r]+"</td>");
+	       table.append(row);
+	   }
+	   var lastRow = $("<tr><td>- overall -</td></tr>");
+	   for (var s in servers) {
+	       lastRow.append("<td>"+avgServrResponseTime[s]+"</td>");
+	   }
+	   lastRow.append("<td />");
+	   table.append(lastRow);
+	   $("#test-result-table").html(table);
+	   
+	    
+	   //TODO: divide into several methods, then test it.
+	           
+	   this.iteration++;
+	   this.resetIterationCompletionStatus();
+	}
+	};
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+ 
     
     
     </script>
