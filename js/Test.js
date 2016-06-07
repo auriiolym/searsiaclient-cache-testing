@@ -1,28 +1,34 @@
 
 // Dependencies:
 //  searsia.js
-var Test = (function() {
-    
-    var _; // Instance. Use '_' instead of 'this'.
+//  TestIteration.js
+//  ResultSet.js
+var Test = function(pSettings) {
+    var _ = this;
     
     // *********************** Private properties. ***************************************
-    var servers,   ss,
-        resources, rs,
+    var servers,
+        resources,
         queries = [],
         confirmedResources = 0,
         status,
-        results
+        resultSet
     ;
     
-    // *********************** Constructor. **********************************************
-    var Test = function(settings) {
-        _ = this;
-        
-        applySettings(settings);
-        
-        results = new ResultSet(servers, resources);
+    // *********************** Public properties. ****************************************
     
-        // Set default request settings.
+    _.startTime = null;
+    
+    _.runtimeTimer = null;
+    
+    _.iterations = [];
+    
+    _.settings = {};
+    
+    // *********************** Constructor. **********************************************
+    function constructor(ppSettings) {
+        applySettings(ppSettings);
+        resultSet = new ResultSet(servers, resources);
         $.ajaxSetup({
             type: "GET",
             timeout: 10000,
@@ -30,17 +36,8 @@ var Test = (function() {
         });
     }
     
-    // *********************** Public properties. ****************************************
-    Test.prototype.settings = {};
-    
-    Test.prototype.startTime = null;
-    
-    Test.prototype.runtimeTimer = null;
-    
-    Test.prototype.iterations = [];
-    
     // *********************** Public methods. *******************************************
-    Test.prototype.start = function() {
+    _.start = function() {
         checkResources();
     };
     
@@ -50,59 +47,59 @@ var Test = (function() {
      * @param rid   string  the resource identifier
      * @return      object  the resource object
      */
-    Test.prototype.getResourceObject = function(rid) {
+    _.getResourceObject = function(rid) {
         return $.extend(true, {}, _.settings.resourceTemplate,
             { resource: { id: rid } },
-            { resource: rs[rid] }
+            { resource: resources[rid] }
         );
     };
 
-    Test.prototype.getSearchTemplate = function(server) { 
-        return ss[server] + "search?q={q?}&r={r?}";
+    _.getSearchTemplate = function(server) { 
+        return servers[server] + "search?q={q?}&r={r?}";
     };
     
-    Test.prototype.incrementQueryCount = function(server) {
+    _.incrementQueryCount = function(server) {
         $("#test-queries2server-"+server).html(parseInt($("#test-queries2server-"+server).html()) + 1);
         $("#test-queries").html(parseInt($("#test-queries").html()) + 1);
     };
     
-    Test.prototype.getTestQueryStrings = function() {
+    _.getTestQueryStrings = function() {
         return queries;
     };
     
-    Test.prototype.hasStatus = function(statusCheck) {
+    _.hasStatus = function(statusCheck) {
         return status === statusCheck;
     };
     
-    Test.prototype.iterationEnded = function(testIteration) {
+    _.iterationEnded = function(testIteration) {
+        //TODO: check if results are right.
+        console.log("Results of iteration " + _.iterations.length + ": ", testIteration.getResultSet().getResults());
+        
         includeIterationResults(testIteration);
         startNewIteration();
-
-        //TODO: results aren't right.
-        console.log("Iteration results:", testIteration.getResultSet().getResults());
     };
     
-    Test.prototype.updateIterationProgress = function(fraction) {
+    _.updateIterationProgress = function(fraction) {
         outputCurrentIterationCompletion(Math.round(fraction * 100, 0));
     }
 
     // *********************** Private methods. ******************************************
     
-    var applySettings = function(settings) {
-        settings = settings || {};
+    var applySettings = function(pSettings) {
+        _.settings = pSettings || {};
         _.settings = {
-            queryAmount:      settings.queryAmount      || 25,
-            queryBase:        settings.queryBase        || "Query" + new Date().getTime(),
-            runTime:          settings.runTime          || 30,
-            delay:            settings.delay            || 200,
-            servers:          settings.servers          || {sv1: "http://localhost:16842/searsia/"},
-            resourceTemplate: settings.resourceTemplate || {resource:{},searsia:"v0.4.0"},
-            resources:        settings.resources        || {}
+            queryAmount:      _.settings.queryAmount      || 25,
+            queryBase:        _.settings.queryBase        || "Query" + new Date().getTime(),
+            runTime:          _.settings.runTime          || 30,
+            delay:            _.settings.delay            || 200,
+            servers:          _.settings.servers          || {sv1: "http://localhost:16842/searsia/"},
+            resourceTemplate: _.settings.resourceTemplate || {resource:{},searsia:"v0.4.0"},
+            resources:        _.settings.resources        || {}
         };
         
         // Shorthands.
-        resources = rs = _.settings.resources;
-        servers   = ss = _.settings.servers;
+        resources = _.settings.resources;
+        servers   = _.settings.servers;
         
         outputSettings();
     },
@@ -113,12 +110,12 @@ var Test = (function() {
         }
     },
     
-    getResourceCheckTemplate = function(server) { return ss[server] + "search?r={r?}"; },
-    getUpdateTemplate        = function(server) { return ss[server] + "update/"; },
+    getResourceCheckTemplate = function(server) { return servers[server] + "search?r={r?}"; },
+    getUpdateTemplate        = function(server) { return servers[server] + "update/"; },
     
     checkResources = function() {
-        for (var r in rs) {
-            for (var s in ss) {
+        for (var r in resources) {
+            for (var s in servers) {
                 checkResource(s, r);
             }
         }
@@ -160,7 +157,7 @@ var Test = (function() {
     // Start test if the preconditions are met. 
     tryToStartTest = function() {
         // Check if all resources are confirmed on the servers.
-        if (confirmedResources !== Object.keys(ss).length * Object.keys(rs).length) {
+        if (confirmedResources !== Object.keys(servers).length * Object.keys(resources).length) {
             return;
         }
         startTest();
@@ -199,11 +196,14 @@ var Test = (function() {
         }
         var testIteration = new TestIteration(_);
         _.iterations.push(testIteration);
+        var id = _.iterations.length;
         testIteration.start();
+        
+        outputNewRunningIteration(id);
     },
     
     includeIterationResults = function(testIteration) {
-        results.appendResultSet(testIteration.getResultSet());
+        resultSet.appendResultSet(testIteration.getResultSet());
         
         outputNewIterationResults(testIteration);
         outputTestResults();
@@ -214,9 +214,12 @@ var Test = (function() {
         setStatus(Test.FINISHED);
         
         if (!_.iterations[_.iterations.length - 1].isComplete()) {
+            console.log("Results of unfinished iteration " + _.iterations.length + ": ", _.iterations[_.iterations.length - 1].getResultSet().getResults());
             includeIterationResults(_.iterations[_.iterations.length - 1]);
             // This should happen in any case.
         }
+        
+        console.log("Test results: ", resultSet.getResults());
     },
     abortTest = function() {
         window.clearInterval(_.runtimeTimer);
@@ -236,56 +239,88 @@ var Test = (function() {
         $("#test-queries2servers").remove();
     },
     
-    outputNewIterationResults = function(testIteration) {
+    outputResults = function(pResultSet, $tbody) {
+        var results = pResultSet.getResults()
         
-    },
-    
-    outputTestResults = function() {
-        var is = Object.keys(servers).length;
-        var res = results.getResults();
-        var $t = $('#test-results tbody');
-        $t.html('');
+        $tbody.html('');
         
-        $row1 = $('<tr><td colspan="'+(is+1)+'">Response times</td><td>Accuracy</td></tr>');
-        $row2 = $("<tr><td /></tr>");
+        var $row1 = $('<tr><td colspan="'+(Object.keys(servers).length+1)+'">Average response times</td><td>Accuracy</td></tr>');
+        var $row2 = $('<tr><td /></tr>');
         for (var s in servers) {
             $row2.append("<td>"+s+"</td>");
         }
         $row2.append("<td />")
-        $t.append($row1).append($row2);
+        $tbody.append($row1).append($row2);
         
         for (var r in resources) {
             var $row = $("<tr><td>"+r+"</td></tr>");
             for (var s in servers) {
-                $row.append("<td>"+Math.round(res.responseTime[s][r].avg)+"</td>");
+                $row.append("<td>"+Math.round(results.responseTime[s][r].avg)+"</td>");
             }
-            $row.append("<td>"+Math.round(res.accuracy[r].ratio * 100)+"%</td>");
-            $t.append($row);
+            $row.append("<td>"+Math.round(results.accuracy[r].ratio * 100)+"%</td>");
+            $tbody.append($row);
         }
         var $row = $("<tr><td>overall</td></tr>");
         for (var s in servers) {
-            $row.append("<td>"+Math.round(res.responseTime[s]._overall.avg)+"</td>");
+            $row.append("<td>"+Math.round(results.responseTime[s]._overall.avg)+"</td>");
         }
-        $row.append("<td>"+Math.round(res.accuracy._overall.ratio * 100)+"%</td>");
-        $t.append($row);
+        $row.append("<td>"+Math.round(results.accuracy._overall.ratio * 100)+"%</td>");
+        $tbody.append($row);
         
         //TODO: add response time ratio (between different servers) table.
+    },
+    
+    outputTestResults = function() {
+        outputResults(resultSet, $('#test-results tbody').first());
+
+        var results = resultSet.getResults();
+        var $t = $('<table />');
+        var $row1 = $('<tr><td>Resp. time ratio</td></tr>');
+        for (var s in servers) {
+            $row1.append('<td>'+s+'</td>');
+        }
+        $t.append($row1);
+        for (var s1 in servers) {
+            var $row = $('<tr><td>'+s1+'</td></tr>');
+            for (var s2 in servers) {
+                var ratio = s1 == s2 ? '-' : (results.responseTime[s1]._overall.avg / results.responseTime[s2]._overall.avg).toFixed(2); 
+                $row.append('<td>'+ratio+'</td>')
+            }
+            $t.append($row);
+        }
+        $("#test-results-resptimeratio").html($t);
+    },
+    
+    outputNewRunningIteration = function(id) {
+        var $t = $('<table id="test-iterationresults-'+id+'"><caption>Iteration #'+id+' (<span id="test-iterationresults-'+id+'-completion">0</span>%)</caption><tbody></tbody></table>');
+        $("caption", $t).css("white-space", "nowrap");
+        $("tbody", $t).hide();
+        $("caption", $t).click(function() {
+            $(this).siblings("tbody").toggle();
+        });
+        $('#test-iterationresults').prepend($t);
+    },
+    
+    outputNewIterationResults = function(testIteration) {
+        var id = _.iterations.length;
+        $('tbody', $('#test-iterationresults-'+(id-1))).hide();
         
+        outputResults(testIteration.getResultSet(), $('#test-iterationresults-'+id+' tbody'));
     },
     
     outputCurrentIterationCompletion = function(percentage) {
-        
+        var id = _.iterations.length;
+        $('#test-iterationresults-'+id+'-completion').html(percentage);
     }
     
     
     ;
-    return Test;
-}());
+    constructor(pSettings);
+};
 
 Test.NOTSTARTED = 0;
 Test.RUNNING = 1;
 Test.ABORTED = 2
 Test.FINISHED = 3;
-
 
 

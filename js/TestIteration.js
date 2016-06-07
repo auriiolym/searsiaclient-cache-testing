@@ -3,13 +3,13 @@
 //  searsia.js
 //  Test.js
 //  ResultSet.js
-var TestIteration = (function() {
-    
-    var _; // Instance. Use '_' instead of 'this'.
+var TestIteration = function(testObject) {
+    var _ = this; // Instance. Use '_' instead of 'this'.
     
     // *********************** Private properties. ***************************************
+    
     var t,
-        results,
+        resultSet,
         queries = [],
         sIDs = [], // server IDs
         rIDs = [],  // resource IDs
@@ -20,62 +20,61 @@ var TestIteration = (function() {
         }
     ;
     
+    // *********************** Public properties. ****************************************
+    
     // *********************** Constructor. **********************************************
-    var TestIteration = function(testObject) {
-        _ = this;
-        
+    function constructor(testObject) {
         t = testObject;
         queries = t.getTestQueryStrings();
         sIDs = Object.keys(t.settings.servers);
         rIDs = Object.keys(t.settings.resources);
-
-        results = new ResultSet(t.settings.servers, t.settings.resources);
+    
+        resultSet = new ResultSet(t.settings.servers, t.settings.resources);
         
         iterator.indices = buildIndicesList();
         iterator.max = iterator.indices.length - 1;
     }
     
-    // *********************** Public properties. ****************************************
 
 
     
     // *********************** Public methods. *******************************************
     
-    TestIteration.prototype.start = function() {
-        execute();
+    _.start = function() {
+        execute(iterator.current);
     };
     
-    TestIteration.prototype.isComplete = function() {
-        return iterator.current >= iterator.max;
+    _.isComplete = function() {
+        return iterator.current > iterator.max;
     };
     
-    TestIteration.prototype.getResultSet = function() {
-        return results;
+    _.getResultSet = function() {
+        return resultSet;
     }
 
     // *********************** Private methods. ******************************************
     
-    var execute = function() {
+    var execute = function(currentIteration) {
         
         // Don't continue if the test isn't running.
         if (!t.hasStatus(Test.RUNNING) || _.isComplete()) {
             return;
         }
 
-        var server = sIDs[iterator.indices[iterator.current].s];
-        var resource = rIDs[iterator.indices[iterator.current].r];
-        var query  = queries[iterator.indices[iterator.current].q];
+        var server = sIDs[iterator.indices[currentIteration].s];
+        var resource = rIDs[iterator.indices[currentIteration].r];
+        var query  = queries[iterator.indices[currentIteration].q];
         
         var requestTime = new Date().getTime();
         $.ajax({
             url: fillUrlTemplate(t.getSearchTemplate(server), query, resource),
             success: function(responseData) {
-                results.add(query, server, resource, requestTime, responseData);
+                resultSet.add(query, server, resource, requestTime, responseData);
                 next();
             },
             error: function(xhr, options, err) {
                 // Ignore result and continue.
-                //results.addError(query, server, resource, requestTime, responseData);
+                //resultSet.addError(query, server, resource, requestTime, responseData);
                 next();
             }
         });
@@ -101,14 +100,16 @@ var TestIteration = (function() {
     next = function() {
         // Increase iterator.
         iterator.current++;
-        t.updateIterationProgress(iterator.current / iterator.max);
+        t.updateIterationProgress(Math.min(iterator.current, iterator.max) / iterator.max);
         
         if (_.isComplete()) {
             end();
             return;
         }
         
-        window.setTimeout(execute, t.settings.delay);
+        window.setTimeout(function() {
+            execute(iterator.current);
+        }, t.settings.delay);
     },
 
     end = function() {
@@ -116,6 +117,6 @@ var TestIteration = (function() {
     }
     
     ;
-    return TestIteration;
-}());
+    constructor(testObject);
+};
 

@@ -1,9 +1,10 @@
 
 // Dependencies:
-//  
-var ResultSet = (function() {
-    
-    var _; // Instance. Use '_' instead of 'this'.
+//  searsia.js
+//  Test.js
+//  TestIteration.js
+var ResultSet = function(pServers, pResources) {    
+    var _ = this; // Instance. Use '_' instead of 'this'.
     
     // *********************** Private properties. ***************************************
     var raw = [],
@@ -18,22 +19,22 @@ var ResultSet = (function() {
         processed = true
     ;
     
-    // *********************** Constructor. **********************************************
-    var ResultSet = function(pServers, pResources) {
-        _ = this;
-        
-        servers = pServers;
-        resources = pResources;
-    }
-    
     // *********************** Public properties. ****************************************
     
+    // *********************** Constructor. **********************************************
+    
+    function constructor(pServers, pResources) {
+        servers = pServers;
+        resources = pResources;
+        
+        resetResults();
+    }
 
     
     // *********************** Public methods. *******************************************
     
     
-    ResultSet.prototype.add = function(query, server, resource, requestTime, responseData) {
+    _.add = function(query, server, resource, requestTime, responseData) {
         raw.push({
             query:          query,
             server:         server,
@@ -45,29 +46,32 @@ var ResultSet = (function() {
         processed = false;
     };
     
-    ResultSet.prototype.getRawResults = function() {
+    _.getRawResults = function() {
         return raw;
     };
 
-    ResultSet.prototype.getResults = function() {
+    _.getResults = function() {
         if (!processed) {
             processResults();
         }
         return results;
     };
     
-    ResultSet.prototype.appendResultSet = function(resultSet) {
+    _.getResults1 = function() {
+        return this.results1;
+    };
+    
+    _.appendResultSet = function(resultSet) {
         
         // Make sure both result sets are processed.
         var rs = resultSet.getResults();
         if (!processed) {
             processResults();
         }
-
+        
         // Response times.
         for (var s in servers) {
             for (var r in resources) {
-
                 results.responseTime[s][r].sum    += rs.responseTime[s][r].sum;
                 results.responseTime[s][r].amount += rs.responseTime[s][r].amount;
                 results.responseTime[s][r].avg     = results.responseTime[s][r].sum / results.responseTime[s][r].amount;
@@ -77,13 +81,12 @@ var ResultSet = (function() {
             results.responseTime[s]._overall.avg = 
                 results.responseTime[s]._overall.sum / results.responseTime[s]._overall.amount;
         }
-        $.extend(true, results.temporalResponse, rs.temporalResponse);
+        $.extend(true, results.temporalResponseTime, rs.temporalResponseTime);
         
         // Accuracies.
         for (var r in resources) {
-
             results.accuracy[r].amountAccurate   += rs.accuracy[r].amountAccurate;
-            results.accuracy[r].amountInaccurate += rs.accuracy[r].amountInccurate;
+            results.accuracy[r].amountInaccurate += rs.accuracy[r].amountInaccurate;
             results.accuracy[r].ratio =
                 results.accuracy[r].amountAccurate /
                 (results.accuracy[r].amountAccurate + results.accuracy[r].amountInaccurate);
@@ -95,11 +98,11 @@ var ResultSet = (function() {
             (results.accuracy._overall.amountAccurate + results.accuracy._overall.amountInaccurate);
         
         // Raw results (minus response data).
-        
+        //TODO: check if this is necessary.
         
     };
     
-    ResultSet.prototype.isProcessed = function() {
+    _.isProcessed = function() {
         return processed;
     }
 
@@ -154,10 +157,9 @@ var ResultSet = (function() {
     },
     
     analyzeAccuracy = function() {
-        
         for (var k in responseData) {
             var r = responseData[k].resource;
-            if (Object.keys(responseData[k].serverResponses).length === servers.length) {
+            if (Object.keys(responseData[k].serverResponses).length === Object.keys(servers).length) {
                 if (equalValues(responseData[k].serverResponses)) {
                     results.accuracy[r].amountAccurate++;
                     results.accuracy._overall.amountAccurate++;
@@ -195,6 +197,6 @@ var ResultSet = (function() {
     }
     
     ;
-    return ResultSet;
-}());
+    constructor(pServers, pResources);
+};
 
