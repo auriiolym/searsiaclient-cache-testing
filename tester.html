@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -9,692 +9,105 @@
     <link id="favicon" rel="icon" type="image/png" href="images/search.png" />
     <link rel="stylesheet" href="css/bootstrap.min.css" />
     <link rel="stylesheet" href="css/searsia.css" />
-    <title>Search</title>
-  </head>
+    <title>Searsia server tester</title>
+</head>
+<body>
 
-  <body>
+<div class="container-fluid theme-search">
+      
+    <div class="row">
+        <div class="col-md-6">
+            <table>
+                <caption>Test settings</caption>
+                <tr><td>Set run time</td><td id="test-setting-runtime"></td></tr>
+                <tr><td>Queries per iteration, per resource, per server</td><td id="test-settings-queries"></td></tr>
+                <tr><td>Delay after each query</td><td><span id="test-setting-delay"></span> ms</td></tr>
+            </table>
+            <table>
+                <caption>Test status</caption>
+                <tr><td>Test status</td><td id="test-status">not started</td></tr>
+                <tr><td>Current run time</td><td id="test-runtime"></td></tr>
+                <tr><td>Temporal completion</td><td id="test-completion"></td></tr>
+                
+                <tr><td>Total amount of queries</td><td id="test-queries">0</td></tr>
+                <tr id="test-queries2servers"></tr>
+            </table>
+        </div>
+        <div class="col-md-6">
+            <table id="test-results">
+                <caption>Test results</caption>
+                <tbody></tbody>
+            </table>
+            
+            <div id="test-results-resptimeratio"></div>
+            
+            <div id="test-iterationresults"></div>
+        </div>
+    </div>
+    <style>
+    td { padding: 3px; }
+    </style>
 
-    <div class="container-fluid theme-search">
+
+</div> <!-- /container -->
+
+<script src="js/jquery.min.js"></script>
+<script src="js/bootstrap.min.js"></script>
+<script src="js/searsia.js"></script>
+<script src="js/Test.js"></script>
+<script src="js/TestIteration.js"></script>
+<script src="js/ResultSet.js"></script>
+
+<script>
+
+
+
+/**
+ * Searsia server comparator.
+ * This compares the speed and accuracy of two Searsia servers.
+ */
+
+// Global settings.
+var settings = {
+    queryAmount: 50, // different query strings
+    runTime: 60*5, // seconds
+    delay: 200, // delay after each query request (in milliseconds)
+    servers: {
+        controlServer: "http://localhost:16842/searsia/",
+        testServer   : "http://localhost:16843/searsia/"
+    },
     
-      <div class="row">
-        <div class="col-md-8">
-          <div>Test status: <span id="test-status">not running</span></div>
-          <div>Set run time: <span id="test-setting-runtime">...</span></div>
-          <div>Current test run time: <span id="test-runtime">0</span> seconds</div>
-          <div>Current test iteration completion: <span id="test-iteration-completion">0</span> %</div>
-          <div>Total queries: <span id="test-totalqueries">0</span></div>
-          <div id="test-queries2servers"></div>
-          <div></div>
-          <div id="test-result-table"></div>
-        </div>
-        <div class="col-md-4"></div>
-      </div>
-
-      <div class="row">
-        <div class="col-md-8">
-          <div class="searsia-icon">
-             <a href="index.html"><img src="images/search.png" alt="" /></a>
-          </div>
-          <div class="searsia-form">
-            <form id="searsia-form">
-             <div class="input-group">
-               <input type="text" name="q" class="form-control" value="" />
-                <span class="input-group-btn">
-                  <button class="btn btn-default" type="submit" value="submit">
-                    <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
-                    <span class="sr-only">Search</span>
-                  </button>
-                </span>
-             </div>
-            </form>
-          </div>
-          <div>
-            <div class="searsia-top" id="searsia-alert-top"></div>
-            <div>&nbsp;</div>
-          </div>
-        </div>
-        <div class="col-md-4">
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="col-md-1">
-        </div>
-        <div class="col-md-7">
-          <div id="searsia-results-1"></div>
-          <div id="searsia-results-2"></div>
-          <div id="searsia-results-3"></div>
-        </div>
-        <div class="col-md-3">
-          <div id="searsia-sidebar">
-          </div>
-        </div>
-        <div class="col-md-1">
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="col-md-1">
-        </div>
-        <div class="col-md-7">
-          <div id="searsia-results-4"></div>
-          <div class="searsia-bottom" id="searsia-alert-bottom">
-            <noscript>Enable Javascript and use a modern browser to use Search</noscript>
-          </div>
-        </div>
-        <div class="col-md-4">
-        </div>
-      </div>
-
-    </div> <!-- /container -->
-
-    <script src="js/jquery.min.js"></script>
-    <script src="js/bootstrap.min.js"></script>
-    <script src="js/searsia.js"></script>
-    <script>
-      $(document).ready(function(){
-        placeName({ });
-        placeIcon({ });
-        var params = searsiaUrlParameters();
-        if (params.q != '') {
-          fillForm(formQuery(params.q));
-          document.title += ": " + printableQuery(params.q);
-          getResources(params);
-        } else {
-          //window.location.replace("index.html");
-        } 
-      });
-    </script>
-    
-    
-    <script>
-    
-
-    
-    /**
-     * Searsia server comparator.
-     * This compares the speed and accuracy of two Searsia servers.
-     */
-    
-    // Global settings.
-    var queryAmount = 25, // different query strings
-        runTime = 30, // seconds
-        delay = 200, // delay after each query request to the set of servers (in milliseconds)
-        servers = {
-            controlServer: "http://localhost:16842/searsia/",
-            testServer   : "http://localhost:16843/searsia/"
+    // The template that will be supplemented and overwritten.
+    resourceTemplate: {
+        resource: {
+            mimetype: "text/html",
+            testquery: "searsia",
+            itempath: "//li",
+            extractors: { title: "." }
         },
-        
-        // The template that will be supplemented and overwritten.
-        resourceTemplate = {
-            resource: {
-                mimetype: "text/html",
-                testquery: "searsia",
-                itempath: "//li",
-                extractors: { title: "." }
-            },
-            searsia: "v0.4.0"
+        searsia: "v0.4.0"
+    },
+    // The values (per resouce) that will supplement and overwrite resourceTemplate.
+    // The id will be the same as the key.
+    resources: {
+        tester10s: {
+            apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=10&q={q}"
         },
-        // The values (per resouce) that will supplement and overwrite resourceTemplate.
-        // The id will be the same as the key.
-        resources = {
-            tester10s: {
-                apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=10&q={q}"
-            },
-            tester20s: {
-                apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=20&q={q}"
-            },
-            tester30s: {
-                apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=30&q={q}"
-            }
+        tester20s: {
+            apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=20&q={q}"
+        },
+        tester30s: {
+            apitemplate: "http://karim.elass.al/searsia-customresource/?ttl=30&q={q}"
         }
-    ;
-    
-    // Declare global variables.
-    var queries = [],
-        intermediaryResults = [],
-        resourceError = false,
-        abort = false
-    ;
-    
-    $(function(){
-    
-    // Set default request settings.
-    $.ajaxSetup({
-    	type: "GET",
-    	timeout: 10000,
-        dataType: 'json',
-    	async: false
-    });
-    
-    // Build a list of unique queries.
-    var queryBase = "Query" + new Date().getTime();
-    for (var i = 0; i < queryAmount; i++) {
-    	queries.push(queryBase + i);
     }
-    
-    // Check if all resources are registered on the servers and if not, try to add them.
-    for (var r in resources) {
-    	for (var s in servers) {
-    		if (!hasResource(s, r)) {
-    			if (addResource(s, r)) {
-    				console.log("Resource " + r + " was added to server " + s + ".");
-    			} else {
-    				resourceError = true;
-    			}
-    		}
-    	}
-    }
-    if (resourceError) {
-    	throw 'error: resource(s) not found and unable to add to server(s).';
-    }
-    
-    // Start the test.
-    var startTime = resultProcessor.startTest();
-    while (new Date().getTime() < startTime + runTime * 1000 && !abort) {
-    	intermediaryResults = {};
-    	
-    	// Loop through all test queries.
-    	for (var j in queries) {
-    		var q = queries[j];
-    		intermediaryResults[q] = {};
-    		
-    		// Loop through all resources.
-    		for (var r in resources) {
-    			intermediaryResults[q][r] = {};
-    			
-    			// Execute query on servers.
-    			var responseData = {};
-    			for (var s in servers) {
-    				if (abort) { throw "abort"; }
-    				responseData[s] = executeQuery(s, q, r);
-    			}
-    			
-    			// Compare results.
-    			intermediaryResults[q][r].accurate = isEqual(responseData, Object.keys(servers));
-    			
-    			// Update iteration completion status.
-    			resultProcessor.updateIterationCompletionStatus();
-    			
-    			// Sleep to give the servers some time.
-    			sleep(delay);
-    		}
-    	}
-    	
-    	// Pass the intermediary results to the processor.
-    	resultProcessor.processIterationResult(intermediaryResults);
-    }
-    resultProcessor.stopTest();
-    
-    console.log("Raw results: ", resultProcessor.rawResults);
-    
-    // Tests are done!
-    });
-    
-    
-    function abortTest() {
-    	abort = true;
-    	resultProcessor.stopTest();
-    }
-    
-    /** 
-     * Now make something of the results.
-     * We want:
-     *  - average response time per server and per resource
-     *  - average response time per server
-     *  - accuracy per resource
-     *
-     * This is the data available:
-     *  results[testIterator][query][resource][server].responseTime
-     *  results[testIterator][query][resource][server].error
-     *  results[testIterator][query][resource].accurate
-     * 
-     * So first reformat to:
-     *  reformattedData[server][resource][] = responseTime
-     *  accuracyData[resource][] = accurate
-     * /
-    
-    var reformattedData = {},
-    	accuracyData = {},
-    	avgResponseTimes = {},
-    	avgServerResponseTimes = {},
-    	accuracies = {}
-    ;
-    for (var i in results) {
-    	for (var q in results[i]) {
-    		for (var r in results[i][q]) {
-    			for (var s in servers) {
-    				reformattedData[s] = reformattedData[s] || {};
-    				reformattedData[s][r] = reformattedData[s][r] || [];
-    				if (results[i][q][r][s].error === false) {
-    					reformattedData[s][r].push(results[i][q][r][s].responseTime);
-    				}
-    			}
-    			accuracyData[r] = accuracyData[r] || [];
-    			if (results[i][q][r].accurate !== null) {
-    				accuracyData[r].push(results[i][q][r].accurate);
-    			}
-    		}
-    	}
-    }
-    console.log("Reformatted data: ", reformattedData);
-    console.log("Accuracy data:    ", accuracyData);
-    
-    // Now calculate the average response time per server per resource and per server.
-    // I also transpose the matrix, so it can be analysed more easily.
-    // Result formats:	
-    //	avgResponseTimes[resource][server] = avg response time
-    //  avgServerResponseTime[server] = avg response time
-    for (var s in reformattedData) {
-        var serverTotalResponseTime = 0;
-        var serverTotalMeasurePoints = 0;
-    	for (var r in reformattedData[s]) {
-    		avgResponseTimes[r] = avgResponseTimes[r] || {};
-    		var sum = reformattedData[s][r].reduce(function(a,b){return a+b;});
-    		
-    		avgResponseTimes[r][s] = sum / reformattedData[s][r].length;
-    		
-    		serverTotalResponseTime += sum;
-    		serverTotalMeasurePoints += reformattedData[s][r].length;
-    	}
-    	avgServerResponseTimes[s] = serverTotalResponseTime / serverTotalMeasurePoints;
-    }
-    console.log("Average response times: ", avgResponseTimes);
-    console.log("Average server response times: ", avgServerResponseTimes);
-    
-    // Calculate the accuracy.
-    // Result format:
-    //  accuracies[resource] = percent accurate
-    for (r in accuracyData) {
-    	var accurate = 0;
-    	var inaccurate = 0;
-    	for (i in accuracyData[r]) {
-    		if (accuracyData[r][i] === true) {
-    			accurate++;
-    		} else if (accuracyData[r][i] === false) {
-    			inaccurate++;
-    		}
-    	}
-    	accuracies[r] = accurate / (accurate + inaccurate);
-    } 
-    console.log("Accuracies: ", accuracies);
-    
-    
-    */
-    
-    
-    
+};
 
-    
-    /**
-     * Return a complete resource object, built up from the resourceTemplate and resources settings.
-     *
-     * @param rid	string	the resource identifier
-     * @return 		object	the resource object
-     */
-    function getResource(rid) {
-    	return jQuery.extend(true, {}, resourceTemplate,
-   			{ resource: { id: rid } },
-   			{ resource: resources[rid] }
- 		);
-    }
-    
-    /**
-     * Check if a server has a specific resource.
-     *
-     * @param server	string	the server id, as can be found in the settings of this script
-     * @param resource	string	the resource id
-     * @return 			boolean
-     */
-    function hasResource(server, resource) {
-    	var result = true;
-	    $.ajax({
-	        url: fillUrlTemplate(getSearchTemplate(server), "", resource),
-	        error: function (xhr, options, err) {
-	        	result = false;
-	        }
-	    });
-	    return result;
-	}
-    
-    
-    /**
-     * Add a resource to a server.
-     *
-     * @param server 	string	the server id, as can be found in the settings of this script
-     * @param resource	string	the resource identifier
-     * @return 			boolean true if adding succeeded
-     */
-    function addResource(server, resource) {
-    	var result,
-    		resourceObject = getResource(resource)
-   		;
-    	
-    	$.ajax({
-            url: getUpdateTemplate(server) + resource, 
-            type: 'PUT',
-            contentType: 'application/searsia+json; charset=utf-8',
-            data: JSON.stringify(resourceObject),
-            success: function (data, textStatus, jqXHR) {
-				result = true;
-            },
-            error: function (jqXHR, textStatus, errorThrown) {
-            	console.log("Update failed.\n" + jqXHR.status + " " + jqXHR.statusText + ".\n");
-            	console.log(jqXHR.responseJSON);
-            	result = false;
-            }
-        });
-    	return result;
-    }
-    
-    
-    /**
-     * Check if the values of the object are equal. It only checks the keys that are passed in the second
-     * parameter. If any value is null or undefined, false is returned.
-     *
-     * @param obj 	object	the object of which the values will be compared to each other
-     * @param keys	array	the keys of the object that should be checked
-     * @return 		boolean true if all values corresponding to the keys are equal to each other; false if
-     *						any value is null or if a key is undefined
-     */
-    function isEqual(obj, keys) {
-		var isEqual = true;
-		// Get the baseline data (the first value in the object).
-		var baselineData = JSON.stringify(obj[keys[0]]);
-		// Compare with each value (including itself).
-		for (var i = 0; i < keys.length; i++) {
-			if (!(keys[i] in obj) || obj[keys[i]] === null || JSON.stringify(obj[s]) !== baselineData) {
-				isEqual = false;
-			}
-		}
-		return isEqual;
-    }
-    
-    
-    /**
-     * Execute a query via a server on a resource. The response time and possible errors are saved
-     * to the results variable. To do that, it also needs access to the testIterator variable.
-     *
-     * @param server 	string	the server id, as can be found in the settings of this script
-     * @param q			string	the query string
-     * @param r			string	the resource identifier
-     * @return			string	the response data
-     */
-    function executeQuery(server, q, r) {
-		var responseData = null;
-		var timeMark = new Date().getTime();
-	    $.ajax({
-	        url: fillUrlTemplate(getSearchTemplate(server), q, r),
-	        success: function (data) { 
-	        	responseData = data;
-	        	// Save response time.
-	        	intermediaryResults[q][r][server] = {
-        			responseTime: new Date().getTime() - timeMark,
-					error: false
-	        	}
-	        },
-	        error: function (xhr, options, err) {
-	        	// Indicate error.
-	        	intermediaryResults[q][r][server] = {
-        			responseTime: null,
-					error: true
-	        	}
-	        }
-	    });
-	    resultProcessor.incrementQueries(server);
-	    return responseData;
-    }
-     
-     
-    function process(rawResults) {
-    	
-    }
-     
+var test = new Test(settings);
+test.start(); 
 
 
-    /**
-     * Return the server's API search template.
-     *
-     * @param server 	string	the server id, as can be found in the settings of this script
-     * @return 			string
-     */
-    function getSearchTemplate(server) {
-    	return servers[server] + "search?q={q?}&r={r?}";
-    }
+</script>
 
-    /**
-     * Return the server's API update template.
-     *
-     * @param server 	string	the server id, as can be found in the settings of this script
-     * @return 			string
-     */
-    function getUpdateTemplate(server) {
-    	return servers[server] + "update/";
-    }
-
-    /**
-     * Sleep for a while.
-     *
-     * @param durationMs 	int		the amount of milliseconds to sleep
-     */
-    function sleep(durationMs) {
-        var now = new Date().getTime(), t=0;
-        while (new Date().getTime() < now + durationMs) {t++;} 
-    }
-    
-    
-    
-	// Variable dependencies:
-	//  servers
-	//  resources
-	//  queries
-	var resultProcessor = {
-	
-	rawResults: [], // format: rawResults[iteration][queryStr][resource][server] = {}
-	iteration: 0,
-	
-	incrementQueries: function(server) {
-	   $("#test-queries2server-"+server).html(parseInt($("#test-queries2server-"+server).html()) + 1);
-	   $("#test-totalqueries").html(parseInt($("#test-totalqueries").html()) + 1);
-	},
-	
-	startTime: null,
-	runtimeInterval: null,
-	startTest: function() {
-	   this.startTime = new Date().getTime();
-	   
-	   // Start timer.
-	   this.runtimeInterval = window.setInterval(function(){
-		   //TODO: this doesn't work
-	       $('#test-runtime').html(Math.round((new Date().getTime() - resultProcessor.startTime) / 1000));
-	   }, 1000);
-	   
-	   this.setStatus(1);
-	   
-	   // Add servers to "amount of queries" overview.
-	   for (s in servers) {
-	       $("#test-queries2servers").append(
-	           $("<div>Queries to server "+s+": <span id=\"test-queries2server-"+s+"\">0</span>")
-	       );
-	   }
-	   
-	   // Show pre-defined, desired run time.
-	   $("#test-setting-runtime").html(runTime + " seconds");//TODO: replace this with minutes, hours, etc.
-	   
-	   return this.startTime;
-	},
-	stopTest: function() {
-	   window.clearInterval(this.runtimeInterval);
-	   this.setStatus(2);
-	},
-	
-	testStatus: 0, // 0 = not started, 1 = running, 2 = done.
-	setStatus(s) {
-	   switch (s) {
-	       case 0: $('#test-status').html("not started"); break;
-	       case 1: $('#test-status').html("running"); break;
-	       case 2: $('#test-status').html("done"); break;
-	   }
-	   this.testStatus = s;
-	},
-	
-	iterationCompletion: null,
-	iterationCompletionProgress: 0,
-	updateIterationCompletionStatus: function() {
-		if (this.iterationCompletion === null) {
-			this.iterationCompletion = queries.length * Object.keys(resources).length;
-		}
-	    this.iterationCompletionProgress++;
-	    $("#test-iteration-completion").html(Math.round(this.iterationCompletionProgress / this.iterationCompletion * 100));
-	},
-	resetIterationCompletionStatus: function() {
-	   this.iterationCompletionProgress = 0;
-	},
-	
-	
-	// Reformatted data.
-	datapoints_responseTimes: {}, // format: [server][resource][] = response time
-	datapoints_accuracies: {},    // format: [resource][] = accurate
-	
-	// Calculated data.
-	avgQueryResponseTime: {},     // format: [resource][server] = avg response time
-	sumQueryResponseTime: {},     // format: [resource][server] = sum of response times
-	avgServrResponseTime: {},     // format: [server] = avg response time
-	sumServrResponseTime: {},     // format: [server] = sum of response times
-	amtServrResponseTime: {},     // format: [server] = amount of response times
-	amtAccurate: {},              // format: [resource] = amount of accurate requests
-	amtInaccurate: {},            // fornat: [resource] = amount of inaccurate requests
-	accuracyRatio: {},            // fornat: [resource] = accuracy
-	
-	processIterationResult: function(iterationResults) {
-	   
-	   // Add to raw result set.
-	   this.rawResults.push(iterationResults);
-	   
-	   var iterationResponseTimes = {}; // format: [server][resource][] = response time
-	   var iterationAccuracies = {};    // format: [resource][] = accurate
-	   
-	   // Reformat into temporary set.
-	   for (var q in iterationResults) {
-	       for (var r in iterationResults[q]) {
-	           for (var s in servers) {
-	               iterationResponseTimes[s] = iterationResponseTimes[s] || {};
-	               iterationResponseTimes[s][r] = iterationResponseTimes[s][r] || [];
-	               if (iterationResults[q][r][s].error === false) {
-	                   iterationResponseTimes[s][r].push(iterationResults[q][r][s].responseTime);
-	               }
-	           }
-	           this.datapoints_accuracies[r] = this.datapoints_accuracies[r] || [];
-	           if (iterationResults[q][r].accurate !== null) {
-	               this.datapoints_accuracies[r].push(iterationResults[q][r].accurate);
-	           }
-	       }
-	   }
-	   
-	   // Add the temporary set to the total result set.
-	   for (var s in servers) {
-	       this.datapoints_responseTimes[s] = this.datapoints_responseTimes[s] || {};
-	       for (var r in iterationResponseTimes[s]) {
-	           this.datapoints_responseTimes[s][r] = this.datapoints_responseTimes[s][r] || [];
-	           $.merge(this.datapoints_responseTimes[s][r], iterationResponseTimes[s][r]);
-	       }
-	   }
-	   for (var r in resources) {
-	       this.datapoints_accuracies[r] = this.datapoints_accuracies[r] || [];
-	       console.log(this.datapoints_accuracies[r], iterationAccuracies[r]);//TODO: it goes wrong here.
-	       $.merge(this.datapoints_accuracies[r], iterationAccuracies[r]);
-	   }
-	   
-	   // Calculate new values (avg response times).
-	   for (var s in servers) {
-	       var serverTotalResponseTime = 0;
-	       var serverTotalMeasurePoints = 0;
-	       for (var r in resources) {
-	           this.avgQueryResponseTime[r]    = this.avgQueryResponseTime[r] || {};
-	           this.sumQueryResponseTime[r][s] = this.sumQueryResponseTime[r][s] || 0;
-	           
-	           var iterationResponseTimesSum = iterationResponseTimes[s][r].reduce(function(a,b){return a+b;});
-	           
-	           this.sumQueryResponseTime[r][s] += iterationResponseTimesSum;
-	           
-	           this.avgQueryResponseTime[r][s] = this.sumQueryResponseTime[r][s] / this.datapoints_responseTimes[s][r].length;
-	           
-	           this.sumServrResponseTime[s] += iterationResponseTimesSum;
-	           this.amtServrResponseTime[s] += this.datapoints_responseTimes[s][r].length;
-	       }
-	       this.avgSrvrResponseTime[s] = this.sumServrResponseTime[s] / this.amtServrResponseTime[s];
-	   }
-	   // Calculate new values (accuracies).
-	   for (var r in resources) {
-	       this.amtAccurate[r] = this.amtAccurate[r] || 0;
-	       this.amtInaccurate[r] = this.amtInaccurate[r] || 0;
-	       for (var i in iterationAccuracies[r]) {
-	           if (iterationAccuracies[r][i] === true) {
-	               this.amtAccurate[r]++;
-	           } else if (iterationAccuracies[r][i] === false) {
-	               this.amtAccurate[r]++;
-	           }
-	       }
-	       this.accuracyRatio[r] = this.amtAccurate[r] / (this.amtAccurate[r] + this.amtInaccurate[r]);
-	   }
-	   
-	   // Update output.
-	   var columns = 2 + servers.length;
-	   var table = $('<table><tr><td colspan="'+(columns-1)+'">Response times</td><td /></tr></table>');
-	   var headRow = $("<tr><td /></tr>");
-	   for (var s in servers) {
-	       headRow.append($("<td>"+s+"</td>"));
-	   }
-	   headRow.append($("<td>- accuracy -</td>"));
-	   t.append(headRow);
-	   for (var r in resources) {
-	       var row = $("<tr><td>"+r+"</td></tr>");
-	       for (var s in servers) {
-	           row.append("<td>"+avgQueryResponseTime[r][s]+" ms</td>")
-	       }
-	       row.append("<td>"+accuracyRatio[r]+"</td>");
-	       table.append(row);
-	   }
-	   var lastRow = $("<tr><td>- overall -</td></tr>");
-	   for (var s in servers) {
-	       lastRow.append("<td>"+avgServrResponseTime[s]+"</td>");
-	   }
-	   lastRow.append("<td />");
-	   table.append(lastRow);
-	   $("#test-result-table").html(table);
-	   
-	    
-	   //TODO: divide into several methods, then test it.
-	           
-	   this.iteration++;
-	   this.resetIterationCompletionStatus();
-	}
-	};
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
- 
-    
-    
-    </script>
-
-  </body>
+</body>
 </html>
 
