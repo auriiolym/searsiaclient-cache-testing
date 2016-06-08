@@ -99,8 +99,8 @@ var TestIteration = function(testObject) {
     
     next = function() {
         // Increase iterator.
-        iterator.current++;
         t.updateIterationProgress(Math.min(iterator.current, iterator.max) / iterator.max);
+        iterator.current++;
         
         if (_.isComplete()) {
             end();

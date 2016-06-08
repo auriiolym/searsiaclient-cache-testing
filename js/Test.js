@@ -3,6 +3,7 @@
 //  searsia.js
 //  TestIteration.js
 //  ResultSet.js
+//  Google Chart API
 var Test = function(pSettings) {
     var _ = this;
     
@@ -15,7 +16,19 @@ var Test = function(pSettings) {
         resultSet,
         startTime = null,
         runtimeTimer = null,
-        iterations = []
+        iterations = [],
+        chart,
+        chartDataTable,
+        chartOptions = {
+            chart: {
+                title: 'Response time per server'
+            },
+            explorer: {},
+            //curveType: 'function',
+            hAxis: { title: 'time' },
+            vAxis: { title: 'response time (ms)' },
+            interpolateNulls: true
+        }
     ;
     
     // *********************** Public properties. ****************************************
@@ -31,6 +44,8 @@ var Test = function(pSettings) {
             timeout: 10000,
             dataType: 'json'
         });
+        google.charts.load('current', {packages: ['corechart']}); // Do this only once.
+        google.charts.setOnLoadCallback(outputPreparedResponseTimeChart);
     }
     
     // *********************** Public methods. *******************************************
@@ -203,6 +218,7 @@ var Test = function(pSettings) {
         resultSet.appendResultSet(testIteration.getResultSet());
         
         outputNewIterationResults(testIteration);
+        outputNewIterationResultsOnChart(testIteration);
         outputTestResults();
     },
     
@@ -250,15 +266,18 @@ var Test = function(pSettings) {
             for (var s in servers) {
                 $row.append('<td>'+Math.round(results.responseTime[s][r].avg)+'</td>');
             }
-            var accuracy = results.accuracy[r].ratio === 1 ? '100' : (results.accuracy[r].ratio*100).toFixed(2);
-            $row.append('<td>'+accuracy+'%</td>');
+            $row.append('<td>' + 
+                    (results.accuracy[r].accuracy === 1 ? '100' : (results.accuracy[r].accuracy*100).toFixed(2))
+                    + '%</td>');
             $tbody.append($row);
         }
         var $row = $('<tr><td>overall</td></tr>');
         for (var s in servers) {
             $row.append('<td>'+Math.round(results.responseTime[s]._overall.avg)+'</td>');
         }
-        $row.append('<td>'+Math.round(results.accuracy._overall.ratio * 100)+'%</td>');
+        $row.append('<td>' + 
+                (results.accuracy._overall.accuracy === 1 ? '100' : (results.accuracy._overall.accuracy*100).toFixed(2))
+                +'%</td>');
         $tbody.append($row);
         
         //TODO: add response time ratio (between different servers) table, of the different iterations.
@@ -267,9 +286,11 @@ var Test = function(pSettings) {
     outputTestResults = function() {
         outputResults(resultSet, $('#test-results tbody').first());
 
+        // Response time ratio table.
         var results = resultSet.getResults();
-        var $t = $('<table />');
-        var $row1 = $('<tr><td>Resp. time ratio</td></tr>');
+        var $t = $('#test-results-responsetimeratio tbody');
+        $t.html('');
+        var $row1 = $('<tr><td /></tr>');
         for (var s in servers) {
             $row1.append('<td>'+s+'</td>');
         }
@@ -282,12 +303,10 @@ var Test = function(pSettings) {
             }
             $t.append($row);
         }
-        $('#test-results-resptimeratio').html($t);
     },
     
     outputNewRunningIteration = function(id) {
         var $t = $('<table id="test-iterationresults-'+id+'"><caption>Iteration #'+id+' (<span id="test-iterationresults-'+id+'-completion">0</span>%)</caption><tbody></tbody></table>');
-        $('caption', $t).css('white-space', 'nowrap');
         $('tbody', $t).hide();
         $('caption', $t).click(function() {
             $(this).siblings('tbody').toggle();
@@ -305,6 +324,42 @@ var Test = function(pSettings) {
     outputCurrentIterationCompletion = function(percentage) {
         var id = iterations.length;
         $('#test-iterationresults-'+id+'-completion').html(percentage);
+    },
+    
+    outputPreparedResponseTimeChart = function() {
+        $container = $('#test-results-temporalresponsetimes');
+        
+        chart = new google.visualization.LineChart($container[0]);
+        chartDataTable = new google.visualization.DataTable();
+        chartDataTable.addColumn('datetime', 'Time');
+        // Loop through sorted servers.
+        for (var i = 0, ss = Object.keys(servers).sort(); i < ss.length; i++) {
+            chartDataTable.addColumn('number', ss[i]);
+            chartDataTable.addColumn('number', ss[i] + ' (average)');
+        }
+        chart.draw(chartDataTable, chartOptions);
+    },
+    
+    outputNewIterationResultsOnChart = function(testIteration) {
+        var results = testIteration.getResultSet().getResults(),
+            requestTimes = Object.keys(results.temporalResponseTime).sort(),
+            ss = Object.keys(servers).sort(),
+            newRows = [];
+        // Loop through each request time.
+        for (var i = 0; i < requestTimes.length; i++) {
+            var requestTime = requestTimes[i],
+                newRow = [new Date(parseInt(requestTime))];
+            // Loop through each server.
+            for (var j = 0; j < ss.length; j++) {
+                var data = results.temporalResponseTime[requestTime][ss[j]];
+                newRow.push(data === undefined ? null : data.responseTime);
+                newRow.push(data === undefined ? null : data.updatedAvg);
+            }
+            newRows.push(newRow);
+        }
+        chartDataTable.addRows(newRows);
+        // Redraw chart.
+        chart.draw(chartDataTable, chartOptions);
     }
     
     
@@ -318,7 +373,7 @@ Test.formatDuration = function(seconds) {
     }
     if (seconds < 60*60) {
         var s = Math.floor(seconds / 60) + ' minutes';
-        s += seconds % 60 > 0 ? (seconds % 60) + ' seconds' : '';
+        s += seconds % 60 > 0 ? ', ' + (seconds % 60) + ' seconds' : '';
         return s;
     }
     if (seconds < 60*60*24) {
@@ -333,5 +388,6 @@ Test.NOTSTARTED = 0;
 Test.RUNNING = 1;
 Test.ABORTED = 2; // Unused as of yet.
 Test.FINISHED = 3;
+
 
 

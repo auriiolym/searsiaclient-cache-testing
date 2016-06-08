@@ -5,8 +5,10 @@ http://searsia.org
 A custom resource script is added in searsia-customresource/index.php. This can be used to simulate fast-changing resources. The script returns the same results, optionally with a specified delay, for the same query, but only within the specified time-to-live period.
 
 ## Usage: 
-1. Open `tester.html` in any text editor and edit the settings to what you want.
-2. Open `tester.html` in a web browser and wait for the results to come in.
+1. Increase your Searsia server's maximum queries per day. This can be done by increasing `org.searsia.engine.Resource.java`'s static `defaultRATE` and/or `defaultPER` fields. Rebuild the jar or make sure you can run the server in an IDE such as Eclipse.
+2. Start two (or more) Searsia servers. These have to have different names (`--name` argument) and ports (`--url` argument) and need to be open (`--open` argument) for changes if they don't have the resources you want to test yet (see the next step). For more information on this, look [here](http://searsia.org/start.html).
+3. Open `tester.html` in any text editor and edit the settings to what you want. Make sure you set the servers to the URLs with which you just started them.
+4. Open `tester.html` in a web browser and wait for the results to come in.
 
 ## Results:
 It checks the response time. It also checks the accuracy between the servers: if the same query is sent to the same resource on different servers, the result is accurate if the results of all servers are identical.

@@ -9,9 +9,25 @@ var ResultSet = function(pServers, pResources) {
     // *********************** Private properties. ***************************************
     var raw = [],
         results = {
-            accuracy: {},            // format: [resource].amountAccurate, etc.
-            responseTime: {},        // format: [server][resource].avg, etc.
-            temporalResponseTime: {} // format: [server][requestTime] = response time
+            /**
+             * Format:      results.accuracy[resource].property
+             * Properties:  amountAccurate, amountInaccurate, accuracy
+             * Use key _overall instead of a resource to get the data of that server.
+             */
+            accuracy: {},
+            
+            /**
+             * Format:      results.responseTime[server][resource].property
+             * Properties:  sum, amount (of datapoints), avg (average)
+             * Use key _overall instead of a resource to get the data of that server.
+             */
+            responseTime: {},
+            
+            /**
+             * Format:      results.temporalResponseTime[requestTime][server].property
+             * Properties:  responseTime, updatedAvg (average with this response time included)
+             */
+            temporalResponseTime: {}
         },
         servers = {},
         resources = {},
@@ -87,19 +103,15 @@ var ResultSet = function(pServers, pResources) {
         for (var r in resources) {
             results.accuracy[r].amountAccurate   += rs.accuracy[r].amountAccurate;
             results.accuracy[r].amountInaccurate += rs.accuracy[r].amountInaccurate;
-            results.accuracy[r].ratio =
+            results.accuracy[r].accuracy =
                 results.accuracy[r].amountAccurate /
                 (results.accuracy[r].amountAccurate + results.accuracy[r].amountInaccurate);
         }
         results.accuracy._overall.amountAccurate   += rs.accuracy._overall.amountAccurate;
         results.accuracy._overall.amountInaccurate += rs.accuracy._overall.amountInaccurate;
-        results.accuracy._overall.ratio =
+        results.accuracy._overall.accuracy =
             results.accuracy._overall.amountAccurate /
             (results.accuracy._overall.amountAccurate + results.accuracy._overall.amountInaccurate);
-        
-        // Raw results (minus response data).
-        //TODO: check if this is necessary.
-        
     };
     
     _.isProcessed = function() {
@@ -122,7 +134,7 @@ var ResultSet = function(pServers, pResources) {
         results.accuracy = { _overall: {
             amountAccurate:     0,
             amountInaccurate:   0,
-            ratio:              0
+            accuracy:           null
         }};
         results.responseTime = {};
         results.temporalResponseTime = {};
@@ -130,12 +142,11 @@ var ResultSet = function(pServers, pResources) {
             results.accuracy[r] = {
                 amountAccurate:     0,
                 amountInaccurate:   0,
-                ratio:              0
+                accuracy:           null
             };
             for (var s in servers) {
                 results.responseTime[s] = results.responseTime[s] || {_overall: {sum: 0, amount: 0, avg: 0}};
                 results.responseTime[s][r] = {sum: 0, amount: 0, avg: 0};
-                results.temporalResponseTime[s] = results.temporalResponseTime[s] || {};
             }
         }
     },
@@ -151,8 +162,12 @@ var ResultSet = function(pServers, pResources) {
             results.responseTime[s]._overall.amount++;
             results.responseTime[s]._overall.avg = 
                 results.responseTime[s]._overall.sum / results.responseTime[s]._overall.amount;
-            
-            results.temporalResponseTime[s][raw[i].requestTime] = raw[i].responseTime;
+
+            results.temporalResponseTime[raw[i].requestTime] = results.temporalResponseTime[raw[i].requestTime] || {};
+            results.temporalResponseTime[raw[i].requestTime][s] = {
+                responseTime: raw[i].responseTime,
+                updatedAvg:   results.responseTime[s]._overall.avg 
+            };
         }
     },
     
@@ -167,10 +182,10 @@ var ResultSet = function(pServers, pResources) {
                     results.accuracy[r].amountInaccurate++;
                     results.accuracy._overall.amountInaccurate++;
                 }
-                results.accuracy[r].ratio =
+                results.accuracy[r].accuracy =
                     results.accuracy[r].amountAccurate /
                     (results.accuracy[r].amountAccurate + results.accuracy[r].amountInaccurate);
-                results.accuracy._overall.ratio =
+                results.accuracy._overall.accuracy =
                     results.accuracy._overall.amountAccurate /
                     (results.accuracy._overall.amountAccurate + results.accuracy._overall.amountInaccurate);
             }

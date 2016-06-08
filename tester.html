@@ -10,6 +10,13 @@
     <link rel="stylesheet" href="css/bootstrap.min.css" />
     <link rel="stylesheet" href="css/searsia.css" />
     <title>Searsia server tester</title>
+    
+    <style>
+        td { padding: 3px; }
+        caption { white-space: nowrap; }
+        #test-iterationresults caption { border-top: 1px solid black; }
+        #test-results-temporalresponsetimes { height: 400px; }
+    </style>
 </head>
 <body>
 
@@ -32,22 +39,23 @@
                 <tr><td>Total amount of queries</td><td id="test-queries">0</td></tr>
                 <tr id="test-queries2servers"></tr>
             </table>
+            <div id="test-results-temporalresponsetimes"></div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-3">
             <table id="test-results">
                 <caption>Test results</caption>
                 <tbody></tbody>
             </table>
             
-            <div id="test-results-resptimeratio"></div>
-            
             <div id="test-iterationresults"></div>
         </div>
+        <div class="col-md-3">
+            <table id="test-results-responsetimeratio">
+                <caption>Response time ratio</caption>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
-    <style>
-    td { padding: 3px; }
-    </style>
-
 
 </div> <!-- /container -->
 
@@ -57,6 +65,7 @@
 <script src="js/Test.js"></script>
 <script src="js/TestIteration.js"></script>
 <script src="js/ResultSet.js"></script>
+<script src="https://www.gstatic.com/charts/loader.js"></script>
 
 <script>
 
@@ -70,7 +79,7 @@
 // Global settings.
 var settings = {
     queryAmount: 50, // different query strings
-    runTime: 60*5, // seconds
+    runTime: 60*20, // seconds
     delay: 200, // delay after each query request (in milliseconds)
     servers: {
         controlServer: "http://localhost:16842/searsia/",
@@ -102,8 +111,11 @@ var settings = {
     }
 };
 
-var test = new Test(settings);
-test.start(); 
+
+$(function(){
+	var test = new Test(settings);
+    test.start();
+});
 
 
 </script>
