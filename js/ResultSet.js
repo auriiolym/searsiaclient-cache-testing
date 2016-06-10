@@ -31,7 +31,13 @@ var ResultSet = function(pServers, pResources) {
         },
         servers = {},
         resources = {},
+        
+        /**
+         * Format: responseData[key].serverResponses[] = response data;
+         * where key is the queryID and the resource concatenated. 
+         */
         responseData = {},
+        
         processed = true
     ;
     
@@ -50,7 +56,7 @@ var ResultSet = function(pServers, pResources) {
     // *********************** Public methods. *******************************************
     
     
-    _.add = function(query, server, resource, requestTime, responseData) {
+    _.add = function(queryID, query, server, resource, requestTime, responseData) {
         raw.push({
             query:          query,
             server:         server,
@@ -58,7 +64,7 @@ var ResultSet = function(pServers, pResources) {
             requestTime:    requestTime,
             responseTime:   new Date().getTime() - requestTime
         });
-        storeResponseData(responseData, query, server, resource);
+        storeResponseData(responseData, queryID, server, resource);
         processed = false;
     };
     
@@ -192,8 +198,8 @@ var ResultSet = function(pServers, pResources) {
         }
     },
     
-    storeResponseData = function(pResponseData, query, server, resource) {
-        var key = query + "-" + resource;
+    storeResponseData = function(pResponseData, queryID, server, resource) {
+        var key = queryID + "-" + resource;
         
         responseData[key] = responseData[key] || { resource: resource, serverResponses: [] };
         responseData[key].serverResponses.push(pResponseData);
