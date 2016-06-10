@@ -101,6 +101,9 @@ var Test = function(pSettings) {
         _.settings = pSettings || {};
         _.settings = {
             queryAmount:      _.settings.queryAmount      || 25,
+            uniqueQueries:    _.settings.uniqueQueries    || 25,
+            queryDistribution:_.settings.queryDistribution|| 'zipf',
+            zipf_s:           _.settings.zipf_s           || 1,
             queryBase:        _.settings.queryBase        || 'Query' + new Date().getTime(),
             runTime:          _.settings.runTime          || 30,
             delay:            _.settings.delay            || 200,
@@ -108,6 +111,10 @@ var Test = function(pSettings) {
             resourceTemplate: _.settings.resourceTemplate || {resource:{},searsia:'v0.4.0'},
             resources:        _.settings.resources        || {}
         };
+        
+        if (_.settings.uniqueQueries > _.settings.queryAmount) {
+            _.settings.uniqueQueries = _.settings.queryAmount;
+        }
         
         // Shorthands.
         resources = _.settings.resources;
@@ -117,9 +124,35 @@ var Test = function(pSettings) {
     },
     
     buildQueryStrings = function() {
-        for (var i = 1; i <= _.settings.queryAmount; i++) {
-            queries.push(_.settings.queryBase + i);
+        var ls = [];
+        
+        // Check correct settings.
+        switch (_.settings.queryDistribution) {
+        case "uniformly":
+        case "zipf":break;
+        default: throw 'invalid distribution selected'; 
         }
+        
+        // Build unique queries.
+        var uniqueQueries = [];
+        for (var i = 0; i < _.settings.uniqueQueries; i++) {
+            uniqueQueries.push(_.settings.queryBase + "u" + i);
+        }
+
+        // Build query list.
+        if (_.settings.queryDistribution === "uniformly") {
+            // Uniform distribution.
+            for (var i = 0; i < _.settings.queryAmount; i++) {
+                ls.push(Randomizer.getRandomItem(uniqueQueries));
+            }
+        } else if (_.settings.queryDistribution === "zipf") {
+            // Zipf distribution. First get list of weights, then select based on that.
+            var weightList = Randomizer.getZipfWeightList(_.settings.zipf_s, _.settings.uniqueQueries);
+            for (var i = 0; i < _.settings.queryAmount; i++) {
+                ls.push(Randomizer.getWeighedRandomItem(uniqueQueries, weightList));
+            }
+        }
+        return ls;
     },
     
     getResourceCheckTemplate = function(server) { return servers[server] + 'search?r={r?}'; },
@@ -186,7 +219,7 @@ var Test = function(pSettings) {
     },
     
     startTest = function() {
-        buildQueryStrings();
+        queries = buildQueryStrings(); // Or should this be generated per TestIteration?
         startTime = new Date().getTime();
         
         // Start timer. If the run time has passed, it shuts down the test.
@@ -237,8 +270,16 @@ var Test = function(pSettings) {
     
     outputSettings = function() {
         $('#test-setting-runtime').html(Test.formatDuration(_.settings.runTime));
-        $('#test-settings-queries').html(_.settings.queryAmount);
         $('#test-setting-delay').html(_.settings.delay);
+        $('#test-settings-queries').html(_.settings.queryAmount);
+        $('#test-settings-uniquequeries').html(_.settings.uniqueQueries);
+        $('#test-settings-querydistribution').html(_.settings.queryDistribution);
+        if (_.settings.queryDistribution === 'zipf') {
+            $('#test-settings-querydistribution').html(
+                $('#test-settings-querydistribution').html() + 
+                ' (s = ' + _.settings.zipf_s + ')'
+            );
+        }
         
         for (s in servers) {
             $('#test-queries2servers').after(
@@ -388,6 +429,4 @@ Test.NOTSTARTED = 0;
 Test.RUNNING = 1;
 Test.ABORTED = 2; // Unused as of yet.
 Test.FINISHED = 3;
-
-
 

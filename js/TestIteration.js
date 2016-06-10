@@ -63,13 +63,14 @@ var TestIteration = function(testObject) {
 
         var server = sIDs[iterator.indices[currentIteration].s];
         var resource = rIDs[iterator.indices[currentIteration].r];
-        var query  = queries[iterator.indices[currentIteration].q];
+        var queryID = iterator.indices[currentIteration].q;
+        var query  = queries[queryID];
         
         var requestTime = new Date().getTime();
         $.ajax({
             url: fillUrlTemplate(t.getSearchTemplate(server), query, resource),
             success: function(responseData) {
-                resultSet.add(query, server, resource, requestTime, responseData);
+                resultSet.add(queryID, query, server, resource, requestTime, responseData);
                 next();
             },
             error: function(xhr, options, err) {

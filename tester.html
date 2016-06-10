@@ -28,6 +28,8 @@
                 <caption>Test settings</caption>
                 <tr><td>Set run time</td><td id="test-setting-runtime"></td></tr>
                 <tr><td>Queries per iteration, per resource, per server</td><td id="test-settings-queries"></td></tr>
+                <tr><td>Unique queries per iteration, per resource, per server</td><td id="test-settings-uniquequeries"></td></tr>
+                <tr><td>Query distribution</td><td id="test-settings-querydistribution"></td></tr>
                 <tr><td>Delay after each query</td><td><span id="test-setting-delay"></span> ms</td></tr>
             </table>
             <table>
@@ -62,6 +64,7 @@
 <script src="js/jquery.min.js"></script>
 <script src="js/bootstrap.min.js"></script>
 <script src="js/searsia.js"></script>
+<script src="js/Randomizer.js"></script>
 <script src="js/Test.js"></script>
 <script src="js/TestIteration.js"></script>
 <script src="js/ResultSet.js"></script>
@@ -78,9 +81,12 @@
 
 // Global settings.
 var settings = {
-    queryAmount: 50, // different query strings
-    runTime: 60*20, // seconds
-    delay: 200, // delay after each query request (in milliseconds)
+    queryAmount:   50,  // amount of query strings
+    uniqueQueries: 25,  // amount of different query strings
+    queryDistribution: "zipf", // query distribution
+    zipf_s:         1,  // s value of the zipf distribution
+    runTime:    20*60,  // seconds
+    delay:        200,  // delay after each query request (in milliseconds)
     servers: {
         controlServer: "http://localhost:16842/searsia/",
         testServer   : "http://localhost:16843/searsia/"
