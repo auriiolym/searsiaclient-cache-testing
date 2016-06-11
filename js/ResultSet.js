@@ -24,6 +24,11 @@ var ResultSet = function(pServers, pResources) {
             responseTime: {},
             
             /**
+             * Format:      results.responseTimeRatio[server][server]
+             */
+            responseTimeRatio: {},
+            
+            /**
              * Format:      results.temporalResponseTime[requestTime][server].property
              * Properties:  responseTime, updatedAvg (average with this response time included)
              */
@@ -104,6 +109,7 @@ var ResultSet = function(pServers, pResources) {
                 results.responseTime[s]._overall.sum / results.responseTime[s]._overall.amount;
         }
         $.extend(true, results.temporalResponseTime, rs.temporalResponseTime);
+        analyzeResponseTimeRatios();
         
         // Accuracies.
         for (var r in resources) {
@@ -131,6 +137,7 @@ var ResultSet = function(pServers, pResources) {
         resetResults();
         
         analyzeResponseTimes();
+        analyzeResponseTimeRatios();
         analyzeAccuracy();
         
         processed = true;
@@ -155,6 +162,12 @@ var ResultSet = function(pServers, pResources) {
                 results.responseTime[s][r] = {sum: 0, amount: 0, avg: 0};
             }
         }
+        for (var s1 in servers) {
+            results.responseTimeRatio[s1] = results.responseTimeRatio[s1] || {};
+            for (var s2 in servers) {
+                results.responseTimeRatio[s1][s2] = results.responseTimeRatio[s1][s2] || null;
+            }
+        }
     },
     
     analyzeResponseTimes = function() {
@@ -174,6 +187,16 @@ var ResultSet = function(pServers, pResources) {
                 responseTime: raw[i].responseTime,
                 updatedAvg:   results.responseTime[s]._overall.avg 
             };
+        }
+    },
+    
+    analyzeResponseTimeRatios = function() {
+        for (var s1 in servers) {
+            for (var s2 in servers) {
+                if (s1 === s2) { continue; }
+                results.responseTimeRatio[s1][s2] = 
+                    results.responseTime[s1]._overall.avg / results.responseTime[s2]._overall.avg;
+            }
         }
     },
     
