@@ -14,6 +14,7 @@
     <style>
         td { padding: 3px; }
         caption { white-space: nowrap; }
+        label { font-weight: normal; }
         #test-iterationresults caption { border-top: 1px solid black; cursor: pointer; }
         #test-results-temporalresponsetimes { height: 400px; }
         #test-results-json { font-size: 8pt; }
@@ -43,6 +44,9 @@
                 <tr id="test-queries2servers"></tr>
             </table>
             <div id="test-results-temporalresponsetimes"></div>
+            <div id="test-results-temporalresponsetimes-lineselection">
+                <table><caption>Show lines on graph:</caption><tbody></tbody></table>
+            </div>
         </div>
         <div class="col-md-3">
             <table id="test-results">
@@ -124,9 +128,9 @@ var settings = {
     }
 };
 
-
+var test;
 $(function(){
-	var test = new Test(settings);
+	test = new Test(settings);
     test.start();
 });
 

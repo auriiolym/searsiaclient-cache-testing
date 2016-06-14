@@ -18,12 +18,14 @@ var Test = function(pSettings) {
         runtimeTimer = null,
         iterations = [],
         chart,
-        chartDataTable,
+        chartDataTable = null,
+        chartDataView,
         chartOptions = {
             chart: {
                 title: 'Response time per server'
             },
             explorer: {},
+            legend: { position: 'in' },
             //curveType: 'function',
             hAxis: { title: 'time' },
             vAxis: { title: 'response time (ms)' },
@@ -297,6 +299,8 @@ var Test = function(pSettings) {
             );
         }
         $('#test-queries2servers').remove();
+        
+        outputGraphLineSelection();
     },
     
     outputResults = function(pResultSet, $tbody) {
@@ -330,8 +334,6 @@ var Test = function(pSettings) {
                 (results.accuracy._overall.accuracy === 1 ? '100' : (results.accuracy._overall.accuracy*100).toFixed(2))
                 +'%</td>');
         $tbody.append($row);
-        
-        //TODO: add response time ratio (between different servers) table, of the different iterations.
     },
     
     outputTestResults = function() {
@@ -377,6 +379,21 @@ var Test = function(pSettings) {
         $('#test-iterationresults-'+id+'-completion').html(percentage);
     },
     
+    drawChart = function() {
+        if (chart === null || chartDataTable === null || chartDataTable.getNumberOfColumns() === 0) {
+            return;
+        }
+        // Check which columns should be hidden.
+        chartDataView = new google.visualization.DataView(chartDataTable);
+        var hiddenColumns = [];
+        $('#test-results-temporalresponsetimes-lineselection input:checkbox:not(:checked)').each(function(){
+            hiddenColumns.push(parseInt($(this).data('column')));
+        });
+        chartDataView.hideColumns(hiddenColumns);
+        // Draw.
+        chart.draw(chartDataView, chartOptions);
+    },
+    
     outputPreparedResponseTimeChart = function() {
         $container = $('#test-results-temporalresponsetimes');
         
@@ -388,8 +405,30 @@ var Test = function(pSettings) {
             chartDataTable.addColumn('number', ss[i]);
             chartDataTable.addColumn('number', ss[i] + ' (average)');
         }
-        chart.draw(chartDataTable, chartOptions);
+        drawChart();
     },
+    
+    outputGraphLineSelection = function() {
+        var id = '#test-results-temporalresponsetimes-lineselection';
+        var $tbody = $('tbody', $(id));
+        for (var i = 0, c = 1, ss = Object.keys(servers).sort(); i < ss.length; i++) {
+            // this is the same loop as is used in outputPreparedResponseTimeChart()
+            var a = [ss[i], ss[i] + ' (average)'];
+            for (var j = 0; j < a.length; j++, c++) {
+                var $input = $('<input type="checkbox" id="'+id+'-column'+c+'" />');
+                $input.attr('checked', 'checked');
+                $input.data('column', c);
+                $tbody.append(
+                    $('<tr />')
+                        .append($('<td />').append($input))
+                        .append($('<td />')
+                            .append($('<label for="'+id+'-column'+c+'">'+a[j]+'</label>'))));
+            }
+        }
+        $('input:checkbox', $tbody).change(function(){
+            drawChart();
+        });
+    }
     
     outputNewIterationResultsOnChart = function(testIteration) {
         var results = testIteration.getResultSet().getResults(),
@@ -409,8 +448,7 @@ var Test = function(pSettings) {
             newRows.push(newRow);
         }
         chartDataTable.addRows(newRows);
-        // Redraw chart.
-        chart.draw(chartDataTable, chartOptions);
+        drawChart();
     }
     
     
