@@ -3,6 +3,7 @@
 //  searsia.js
 //  TestIteration.js
 //  ResultSet.js
+//  Randomizer.js
 //  Google Chart API
 var Test = function(pSettings) {
     var _ = this;
@@ -456,22 +457,22 @@ var Test = function(pSettings) {
     constructor(pSettings);
 };
 
-Test.formatDuration = function(seconds) {
-    if (seconds < 60) {
-        return seconds + ' seconds';
-    }
-    if (seconds < 60*60) {
-        var s = Math.floor(seconds / 60) + ' minutes';
-        s += seconds % 60 > 0 ? ', ' + (seconds % 60) + ' seconds' : '';
-        return s;
-    }
-    if (seconds < 60*60*24) {
-        return Math.floor(seconds / 3600) + " hours, " + Math.floor(seconds / 60) + " minutes, " + (seconds % 60) + " seconds";
-    }
-    if (seconds > 60*60*24) {
-        return "more than a day";
-    }
-}
+// *********************** Static methods and properties *********************************
+
+Test.formatDuration = function(s) {
+    var ss = function(i){return i===1?'':'s';}, 
+        d = Math.floor(s / 86400),
+        h = Math.floor((s-d*86400) / 3600),
+        m = Math.floor((s-d*86400 - h*3600) / 60),
+        s = s % 60, 
+        o = '';
+    
+    o += d > 0 ? ', ' + d + ' day'    + ss(d) :'';
+    o += h > 0 ? ', ' + h + ' hour'   + ss(h) :'';
+    o += m > 0 ? ', ' + m + ' minute' + ss(m) :'';
+    o += s > 0 ? ', ' + s + ' second' + ss(s) :'';
+    return o.substr(2);
+};
 
 Test.NOTSTARTED = 0;
 Test.RUNNING = 1;
