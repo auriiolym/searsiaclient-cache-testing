@@ -27,7 +27,15 @@ var Test = function(pSettings) {
             //curveType: 'function',
             hAxis: { title: 'time' },
             vAxis: { title: 'response time (ms)' },
-            interpolateNulls: true
+            interpolateNulls: true,
+            series: [
+                {color: '#3366CC'},
+                {color: '#33A8CC', lineWidth: 2, lineDashStyle: [7,3]},
+                {color: '#DC3912'},
+                {color: '#DC8412', lineWidth: 2, lineDashStyle: [7,3]},
+                {color: '#FF9900'},
+                {color: '#FFD900', lineWidth: 2, lineDashStyle: [7,3]},
+            ]
         }
     ;
     
@@ -264,6 +272,8 @@ var Test = function(pSettings) {
             includeIterationResults(iterations[iterations.length - 1]);
             // This should happen in any case.
         }
+
+        $('#test-results-json').html(JSON.stringify(resultSet.getResults()));
         
         console.log('Test results: ', resultSet.getResults());
     },
@@ -339,8 +349,8 @@ var Test = function(pSettings) {
         for (var s1 in servers) {
             var $row = $('<tr><td>'+s1+'</td></tr>');
             for (var s2 in servers) {
-                var ratio = s1 == s2 ? '-' : (results.responseTime[s1]._overall.avg / results.responseTime[s2]._overall.avg).toFixed(2); 
-                $row.append('<td>'+ratio+'</td>')
+                var ratio = results.responseTimeRatio[s1][s2]; 
+                $row.append('<td>' + (ratio === null ? '-' : ratio.toFixed(3)) + '</td>');
             }
             $t.append($row);
         }

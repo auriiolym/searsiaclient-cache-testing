@@ -14,8 +14,9 @@
     <style>
         td { padding: 3px; }
         caption { white-space: nowrap; }
-        #test-iterationresults caption { border-top: 1px solid black; }
+        #test-iterationresults caption { border-top: 1px solid black; cursor: pointer; }
         #test-results-temporalresponsetimes { height: 400px; }
+        #test-results-json { font-size: 8pt; }
     </style>
 </head>
 <body>
@@ -48,6 +49,7 @@
                 <caption>Test results</caption>
                 <tbody></tbody>
             </table>
+            <br />
             
             <div id="test-iterationresults"></div>
         </div>
@@ -55,6 +57,11 @@
             <table id="test-results-responsetimeratio">
                 <caption>Response time ratio</caption>
                 <tbody></tbody>
+            </table>
+            <div><br /></div>
+            <table>
+                <caption title="For a prettier result set, look in your developer console.">Semi-processed results (JSON)</caption>
+                <tr><td><textarea id="test-results-json" readonly="readonly">no final results available yet</textarea></td></tr>
             </table>
         </div>
     </div>
@@ -122,6 +129,10 @@ $(function(){
 	var test = new Test(settings);
     test.start();
 });
+
+
+// Auto-select functionality for the result output textarea.
+$(function(){$('#test-results-json').focus(function(){$(this).select();})});
 
 
 </script>
