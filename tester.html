@@ -18,6 +18,7 @@
         #test-iterationresults caption { border-top: 1px solid black; cursor: pointer; }
         #test-results-temporalresponsetimes { height: 400px; }
         #test-results-json { font-size: 8pt; }
+        #test-error { color: red; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -36,7 +37,7 @@
             </table>
             <table>
                 <caption>Test status</caption>
-                <tr><td>Test status</td><td id="test-status">not started</td></tr>
+                <tr><td>Test status</td><td id="test-status">not started</td><td id="test-error"></td></tr>
                 <tr><td>Current run time</td><td id="test-runtime"></td></tr>
                 <tr><td>Temporal completion</td><td id="test-completion"></td></tr>
                 
@@ -97,7 +98,7 @@ var settings = {
     queryDistribution: "zipf", // query distribution
     zipf_s:         1,  // s value of the zipf distribution
     runTime:    20*60,  // seconds
-    delay:        200,  // delay after each query request (in milliseconds)
+    delay:        300,  // delay after each query request (in milliseconds)
     servers: {
         controlServer: "http://localhost:16842/searsia/",
         testServer   : "http://localhost:16843/searsia/"

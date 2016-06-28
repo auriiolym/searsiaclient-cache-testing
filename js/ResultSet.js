@@ -30,7 +30,7 @@ var ResultSet = function(pServers, pResources) {
             
             /**
              * Format:      results.temporalResponseTime[requestTime][server].property
-             * Properties:  responseTime, updatedAvg (average with this response time included)
+             * Properties:  responseTime, runningAvg (average with this response time included)
              */
             temporalResponseTime: {}
         },
@@ -84,10 +84,6 @@ var ResultSet = function(pServers, pResources) {
         return results;
     };
     
-    _.getResults1 = function() {
-        return this.results1;
-    };
-    
     _.appendResultSet = function(resultSet) {
         
         // Make sure both result sets are processed.
@@ -109,6 +105,7 @@ var ResultSet = function(pServers, pResources) {
                 results.responseTime[s]._overall.sum / results.responseTime[s]._overall.amount;
         }
         $.extend(true, results.temporalResponseTime, rs.temporalResponseTime);
+        analyzeTemporalRunningAverageResponseTimes();
         analyzeResponseTimeRatios();
         
         // Accuracies.
@@ -185,8 +182,28 @@ var ResultSet = function(pServers, pResources) {
             results.temporalResponseTime[raw[i].requestTime] = results.temporalResponseTime[raw[i].requestTime] || {};
             results.temporalResponseTime[raw[i].requestTime][s] = {
                 responseTime: raw[i].responseTime,
-                updatedAvg:   results.responseTime[s]._overall.avg 
+                runningAvg:   results.responseTime[s]._overall.avg 
             };
+        }
+    },
+    
+    analyzeTemporalRunningAverageResponseTimes = function() {
+        var sum = {};
+        var amt = {};
+        for (var s in servers) {
+            sum[s] = 0;
+            amt[s] = 0;
+        }
+        for (var i = 0, ts = Object.keys(results.temporalResponseTime).sort(); i < ts.length; i++) {
+            var time = ts[i];
+            for (var s in servers) {
+                if (results.temporalResponseTime[time][s] === undefined) {
+                    continue;
+                }
+                sum[s] += results.temporalResponseTime[time][s].responseTime;
+                amt[s]++;
+                results.temporalResponseTime[time][s].runningAvg = sum[s] / amt[s];
+            }
         }
     },
     

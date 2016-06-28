@@ -17,7 +17,6 @@ var Test = function(pSettings) {
         resultSet,
         startTime = null,
         runtimeTimer = null,
-        iterations = [],
         chart,
         chartDataTable = null,
         chartDataView,
@@ -45,6 +44,8 @@ var Test = function(pSettings) {
     // *********************** Public properties. ****************************************
     
     _.settings = {};
+    
+    _.iterations = [];
     
     // *********************** Constructor. **********************************************
     function constructor(ppSettings) {
@@ -96,7 +97,9 @@ var Test = function(pSettings) {
     };
     
     _.iterationEnded = function(testIteration) {
-        console.log('Results of iteration ' + iterations.length + ': ', testIteration.getResultSet().getResults());
+        console.log('Results of iteration ' + _.iterations.length + ': ',
+                {startTime: {date: new Date(testIteration.startTime), stamp: testIteration.startTime}},
+                testIteration.getResultSet().getResults());
         
         includeIterationResults(testIteration);
         startNewIteration();
@@ -104,8 +107,12 @@ var Test = function(pSettings) {
     
     _.updateIterationProgress = function(fraction) {
         outputCurrentIterationCompletion(Math.round(fraction * 100, 0));
-    }
+    };
 
+    _.indicateError = function() {
+        $('#test-error').html('An error has occured. Check the developers console.');
+    };
+    
     // *********************** Private methods. ******************************************
     
     var applySettings = function(pSettings) {
@@ -251,8 +258,8 @@ var Test = function(pSettings) {
             return;
         }
         var testIteration = new TestIteration(_);
-        iterations.push(testIteration);
-        var id = iterations.length;
+        _.iterations.push(testIteration);
+        var id = _.iterations.length;
         testIteration.start();
         
         outputNewRunningIteration(id);
@@ -262,17 +269,20 @@ var Test = function(pSettings) {
         resultSet.appendResultSet(testIteration.getResultSet());
         
         outputNewIterationResults(testIteration);
-        outputNewIterationResultsOnChart(testIteration);
+        outputResultsOnChart();
         outputTestResults();
     },
     
     finishTest = function() {
         window.clearInterval(runtimeTimer);
         setStatus(Test.FINISHED);
+        var iteration = _.iterations[_.iterations.length - 1];
         
-        if (!iterations[iterations.length - 1].isComplete()) {
-            console.log('Results of unfinished iteration ' + iterations.length + ': ', iterations[iterations.length - 1].getResultSet().getResults());
-            includeIterationResults(iterations[iterations.length - 1]);
+        if (!iteration.isComplete()) {
+            console.log('Results of unfinished iteration ' + _.iterations.length + ': ',
+                    {startTime: {date: new Date(iteration.startTime), stamp: iteration.startTime}},
+                    iteration.getResultSet().getResults());
+            includeIterationResults(iteration);
             // This should happen in any case.
         }
 
@@ -369,14 +379,14 @@ var Test = function(pSettings) {
     },
     
     outputNewIterationResults = function(testIteration) {
-        var id = iterations.length;
+        var id = _.iterations.length;
         $('tbody', $('#test-iterationresults-'+(id-1))).hide();
         
         outputResults(testIteration.getResultSet(), $('#test-iterationresults-'+id+' tbody'));
     },
     
     outputCurrentIterationCompletion = function(percentage) {
-        var id = iterations.length;
+        var id = _.iterations.length;
         $('#test-iterationresults-'+id+'-completion').html(percentage);
     },
     
@@ -429,26 +439,28 @@ var Test = function(pSettings) {
         $('input:checkbox', $tbody).change(function(){
             drawChart();
         });
-    }
+    },
     
-    outputNewIterationResultsOnChart = function(testIteration) {
-        var results = testIteration.getResultSet().getResults(),
+    outputResultsOnChart = function() {
+        var results = resultSet.getResults(),
             requestTimes = Object.keys(results.temporalResponseTime).sort(),
             ss = Object.keys(servers).sort(),
-            newRows = [];
+            rows = [];
+        // Reset data.
+        chartDataTable.removeRows(0, chartDataTable.getNumberOfRows());
         // Loop through each request time.
         for (var i = 0; i < requestTimes.length; i++) {
             var requestTime = requestTimes[i],
-                newRow = [new Date(parseInt(requestTime))];
+                row = [new Date(parseInt(requestTime))];
             // Loop through each server.
             for (var j = 0; j < ss.length; j++) {
                 var data = results.temporalResponseTime[requestTime][ss[j]];
-                newRow.push(data === undefined ? null : data.responseTime);
-                newRow.push(data === undefined ? null : data.updatedAvg);
+                row.push(data === undefined ? null : data.responseTime);
+                row.push(data === undefined ? null : data.runningAvg);
             }
-            newRows.push(newRow);
+            rows.push(row);
         }
-        chartDataTable.addRows(newRows);
+        chartDataTable.addRows(rows);
         drawChart();
     }
     

@@ -22,6 +22,8 @@ var TestIteration = function(testObject) {
     
     // *********************** Public properties. ****************************************
     
+    _.startTime = null;
+    
     // *********************** Constructor. **********************************************
     function constructor(testObject) {
         t = testObject;
@@ -41,6 +43,7 @@ var TestIteration = function(testObject) {
     // *********************** Public methods. *******************************************
     
     _.start = function() {
+        _.startTime = new Date().getTime();
         execute(iterator.current);
     };
     
@@ -74,8 +77,11 @@ var TestIteration = function(testObject) {
                 next();
             },
             error: function(xhr, options, err) {
-                // Ignore result and continue.
-                //resultSet.addError(query, server, resource, requestTime, responseData);
+                // Ignore result, indicate error and continue.
+                t.indicateError();
+                console.log("error on iteration " + t.iterations.length + 
+                            ", queryID " + queryID + ", server " + server + 
+                            ", resource " + resource + ". " + err);
                 next();
             }
         });
